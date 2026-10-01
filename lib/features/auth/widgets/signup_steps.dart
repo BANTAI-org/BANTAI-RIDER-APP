@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../controllers/signup_controller.dart';
 import 'signup_step_layout.dart';
@@ -248,8 +249,61 @@ class _VehicleStep extends StatelessWidget {
   );
 }
 
-class _FaceStep extends StatelessWidget {
+class _FaceStep extends StatefulWidget {
   const _FaceStep();
+
+  @override
+  State<_FaceStep> createState() => _FaceStepState();
+}
+
+class _FaceStepState extends State<_FaceStep> {
+  final LocalAuthentication _localAuthentication = LocalAuthentication();
+  bool _isAuthenticating = false;
+  bool _isUnlocked = false;
+  String? _errorMessage;
+
+  Future<void> _authenticate() async {
+    if (_isAuthenticating) return;
+
+    setState(() {
+      _isAuthenticating = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final isSupported = await _localAuthentication.isDeviceSupported();
+      final biometrics = await _localAuthentication.getAvailableBiometrics();
+      if (!isSupported || biometrics.isEmpty) {
+        setState(() {
+          _errorMessage =
+              'Set up Face ID or another biometric on this device first.';
+        });
+        return;
+      }
+
+      final authenticated = await _localAuthentication.authenticate(
+        localizedReason: 'Use facial unlock to confirm your rider identity.',
+        biometricOnly: true,
+      );
+      if (!mounted) return;
+      setState(() => _isUnlocked = authenticated);
+    } on LocalAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = switch (error.code) {
+          LocalAuthExceptionCode.noBiometricsEnrolled ||
+          LocalAuthExceptionCode.noBiometricHardware =>
+            'Set up Face ID or another biometric on this device first.',
+          LocalAuthExceptionCode.authInProgress =>
+            'Another biometric prompt is already open.',
+          LocalAuthExceptionCode.userCanceled => 'Facial unlock was canceled.',
+          _ => 'Facial unlock could not be completed. Please try again.',
+        };
+      });
+    } finally {
+      if (mounted) setState(() => _isAuthenticating = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => SignupStepLayout(
@@ -278,6 +332,32 @@ class _FaceStep extends StatelessWidget {
           'Position your face inside the frame',
           style: TextStyle(color: Color(0xFF7B818C)),
         ),
+        const SizedBox(height: 20),
+        FilledButton.icon(
+          onPressed: _isAuthenticating ? null : _authenticate,
+          icon: _isAuthenticating
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(
+                  _isUnlocked
+                      ? Icons.check_circle_outline
+                      : Icons.face_retouching_natural_outlined,
+                ),
+          label: Text(
+            _isUnlocked ? 'Facial unlock enabled' : 'Enable facial unlock',
+          ),
+        ),
+        if (_errorMessage case final message?) ...[
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.redAccent),
+          ),
+        ],
       ],
     ),
   );
