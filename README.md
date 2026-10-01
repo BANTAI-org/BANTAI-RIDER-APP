@@ -1,81 +1,89 @@
-# banta_rider_app
+# BANTAI Responder App
 
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Flutter application for BANTAI responders.
 
 ## Project Structure
+
+```text
 lib/
 ├── core/
 │   ├── constants/
-│   │   └── api_endpoints.dart
-│   └── network/
-│       └── network_info.dart
+│   │   └── network_settings.dart # NestJS base URL, paths, and timeout
+│   ├── network/
+│   │   └── api_client.dart       # JSON HTTP client and API errors
+│   └── theme/
+│       └── app_theme.dart        # App-wide Material theme tokens
 ├── data/
 │   ├── datasources/
-│   │   ├── rest_client.dart
-│   │   ├── websocket_client.dart
-│   │   └── webrtc_service.dart
+│   │   └── auth_remote_data_source.dart
 │   ├── models/
-│   │   └── trip_model.dart
+│   │   └── auth_tokens_model.dart
 │   └── repositories/
-│       └── trip_repository_impl.dart
+│       └── auth_repository_impl.dart
 ├── domain/
 │   ├── entities/
-│   │   └── trip_entity.dart
+│   │   └── auth_tokens.dart
 │   └── repositories/
-│       └── trip_repository.dart
-├── features/
-│   └── live_trip/
+│       └── auth_repository.dart  # Auth contract used by controllers
+├── features/                     # Feature-focused application code
+│   └── auth/
 │       ├── controllers/
-│       │   └── live_trip_notifier.dart
-│       └── screens/
-│           └── live_trip_screen.dart
-└── main.dart
-example
+│       │   ├── login_controller.dart
+│       │   └── signup_controller.dart
+│       ├── screens/
+│       │   ├── login.dart
+│       │   └── signup.dart
+│       └── widgets/
+│           ├── login_form.dart
+│           ├── login_header.dart
+│           ├── login_text_field.dart
+│           └── social_auth_button.dart
+└── main.dart                     # Dependency wiring and app entry point
+```
 
-lib/
-│
-├── core/                         # Shared utilities, constants, & themes
-│   ├── constants/                # App constants (API endpoints, asset strings)
-│   ├── theme/                    # App colors, text styles, and styling data
-│   └── utils/                    # Helper functions (date formatters, validators)
-│
-├── data/                         # Data Layer (Raw network communication & data parsing)
-│   ├── datasources/              # Where raw network calls happen
-│   │   ├── rest_api_client.dart  # Custom Dio/Http client for NestJS REST endpoints
-│   │   ├── websocket_client.dart # Manages the persistent WebSocket connection
-│   │   └── webrtc_service.dart   # Initializes peer connections & signaling
-│   ├── models/                   # JSON serialization / Deserialization models
-│   │   ├── rider_model.dart
-│   │   └── trip_model.dart
-│   └── repositories/             # Combines datasources & converts models to domain entities
-│
-├── domain/                       # Business Rules Layer (Pure Dart, no UI/Framework code)
-│   ├── entities/                 # Clean, immutable data structures used by the UI
-│   └── repositories_interfaces/  # Contracts/Abstract classes defining data behavior
-│
-├── features/                     # Feature Layer (Broken down by app modules)
-│   ├── auth/                     # Authentication feature (Login, Register)
-│   │   ├── controllers/          # State management (Bloc, Riverpod, or Cubit)
-│   │   └── screens/              # UI Views and Widgets
-│   ├── home/                     # Dashboard / Map view
-│   └── trip/                     # Active delivery/ride tracking feature
-│       ├── controllers/          # Listens to WebSocket/WebRTC state changes
-│       ├── screens/              # Active trip screen (real-time map updates)
-│       └── widgets/              # Small, reusable widgets (e.g., TripStatsCard)
-│
-└── main.dart                     # App Initialization entry point
+## How The Layers Work
 
+`main.dart` creates one `ApiClient`, injects it into `AuthRemoteDataSource`, wraps that in `AuthRepositoryImpl`, and passes the repository into the login screen. This keeps widgets independent of HTTP details.
+
+The authentication flow is split into four layers:
+
+- `domain` defines the `AuthRepository` contract and `AuthTokens` entity. It does not know about Flutter or HTTP.
+- `data` implements that contract. The remote data source maps login and signup requests to the NestJS API, while the model maps token JSON into the domain entity.
+- `features/auth/controllers` owns form state, validation, loading, and user actions.
+- `features/auth/screens` and `widgets` render the UI and handle navigation/snackbars.
+
+`AppTheme` is the single starting point for Material theme customization. Add typography, spacing, component themes, and dark mode there as the product design develops.
+
+## Environment Configuration
+
+Copy `.env.example` to `.env` before running the app. `.env` is ignored by Git and is loaded by `main.dart` with `flutter_dotenv`.
+
+`API_BASE_URL` should point to the NestJS API, for example `http://10.0.2.2:3000/api/v1` for an Android emulator. Keep secrets out of this file: Flutter environment files are bundled into the client application and are not secure storage.
+
+## NestJS Connection
+
+The API URL and timeout are read from `.env`; endpoint paths remain code constants in `NetworkSettings`.
+
+The configured endpoints are:
+
+- Login: `POST /auth/local/signin`
+- Signup: `POST /auth/local/signup`
+- Refresh: `POST /auth/refresh`
+
+The existing NestJS server currently exposes login and refresh. Its `ManualSignupDto` exists, but the signup controller route and service flow still need to be added before the app's signup action can succeed.
+
+## Getting Started
+
+Install Flutter, then run:
+
+```bash
+flutter pub get
+flutter run
+```
+
+Run static analysis and tests with:
+
+```bash
+flutter analyze
+flutter test
+```
