@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../controllers/signup_controller.dart';
+import 'auth_flow_widgets.dart';
 import 'signup_step_layout.dart';
 
 class SignupStepView extends StatelessWidget {
@@ -18,7 +20,7 @@ class SignupStepView extends StatelessWidget {
         1 => _AccountStep(controller: controller),
         2 => _LicenseStep(controller: controller),
         3 => _VehicleStep(controller: controller),
-        4 => const _FaceStep(),
+        4 => _FaceStep(controller: controller),
         _ => _VerifyStep(controller: controller),
       },
     );
@@ -40,14 +42,26 @@ class _PersonalStep extends StatelessWidget {
       child: Column(
         children: [
           SignupField(
-            controller: controller.fullNameController,
-            label: 'Full name',
+            controller: controller.firstNameController,
+            label: 'First Name',
             validator: controller.validateRequired,
           ),
           SignupField(
+            controller: controller.lastNameController,
+            label: 'Last Name',
+            validator: controller.validateRequired,
+          ),
+          SignupDateField(
             controller: controller.birthDateController,
             label: 'Birth date (DD/MM/YYYY)',
-            validator: controller.validateRequired,
+            validator: controller.validateDate,
+            firstDate: DateTime(1900),
+            lastDate: DateUtils.dateOnly(DateTime.now()),
+          ),
+          SignupField(
+            controller: controller.addressController,
+            label: 'Home Address',
+            validator: controller.validateAddress,
           ),
         ],
       ),
@@ -61,6 +75,7 @@ class _AccountStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SignupStepLayout(
+    onBack: controller.previousStep,
     step: 1,
     title: 'Account & login',
     description:
@@ -117,6 +132,7 @@ class _LicenseStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SignupStepLayout(
+    onBack: controller.previousStep,
     step: 2,
     title: 'License & operator',
     description:
@@ -125,12 +141,39 @@ class _LicenseStep extends StatelessWidget {
       children: [
         SignupSection(
           title: 'Service provider',
-          child: DropdownButtonFormField<String>(
-            initialValue: 'Angkas',
-            items: const [
-              DropdownMenuItem(value: 'Angkas', child: Text('Angkas')),
+          child: DropdownMenuFormField<String>(
+            controller: controller.serviceProviderController,
+            width: double.infinity,
+            expandedInsets: EdgeInsets.zero,
+            inputDecorationTheme: const InputDecorationTheme(
+              filled: true,
+              fillColor: AppTheme.fieldFill,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 15,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+                borderSide: BorderSide(color: AppTheme.fieldBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+                borderSide: BorderSide(color: AppTheme.fieldBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+                borderSide: BorderSide(color: AppTheme.brandRed),
+              ),
+            ),
+            menuStyle: const MenuStyle(
+              maximumSize: WidgetStatePropertyAll(Size.fromHeight(240)),
+            ),
+            dropdownMenuEntries: const [
+              DropdownMenuEntry(value: 'Angkas', label: 'Angkas'),
+              DropdownMenuEntry(value: 'Move It', label: 'Move It'),
+              DropdownMenuEntry(value: 'JoyRide', label: 'JoyRide'),
+              DropdownMenuEntry(value: 'Grab', label: 'Grab'),
             ],
-            onChanged: (_) {},
           ),
         ),
         const SizedBox(height: 20),
@@ -143,10 +186,12 @@ class _LicenseStep extends StatelessWidget {
                 label: 'License number',
                 validator: controller.validateRequired,
               ),
-              SignupField(
+              SignupDateField(
                 controller: controller.licenseExpiryController,
                 label: 'Expiry date (DD/MM/YYYY)',
-                validator: controller.validateRequired,
+                validator: controller.validateDate,
+                firstDate: DateUtils.dateOnly(DateTime.now()),
+                lastDate: DateTime(2100),
               ),
             ],
           ),
@@ -159,12 +204,13 @@ class _LicenseStep extends StatelessWidget {
               SignupField(
                 controller: controller.yearsRidingController,
                 label: 'Years riding',
-                validator: controller.validateRequired,
+                validator: controller.validateYearsRiding,
                 keyboardType: TextInputType.number,
               ),
               SignupField(
                 controller: controller.operatorIdController,
                 label: 'Operator ID',
+                validator: controller.validateRequired,
               ),
             ],
           ),
@@ -180,6 +226,7 @@ class _VehicleStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SignupStepLayout(
+    onBack: controller.previousStep,
     step: 3,
     title: 'Vehicle & medical info',
     description: 'Plate, bike, and blood type are read aloud to responders during an SOS.',
@@ -202,6 +249,7 @@ class _VehicleStep extends StatelessWidget {
               SignupField(
                 controller: controller.bodyColorController,
                 label: 'Body color',
+                validator: controller.validateRequired,
               ),
             ],
           ),
@@ -214,10 +262,12 @@ class _VehicleStep extends StatelessWidget {
               SignupField(
                 controller: controller.bloodTypeController,
                 label: 'Blood type',
+                validator: controller.validateBloodType,
               ),
               SignupField(
                 controller: controller.medicalConditionsController,
                 label: 'Conditions / allergies',
+                validator: controller.validateRequired,
               ),
             ],
           ),
@@ -235,14 +285,27 @@ class _VehicleStep extends StatelessWidget {
               SignupField(
                 controller: controller.emergencyRelationController,
                 label: 'Relation',
+                validator: controller.validateRequired,
               ),
               SignupField(
                 controller: controller.emergencyNumberController,
                 label: 'Contact number',
                 keyboardType: TextInputType.phone,
+                validator: controller.validateMobile,
               ),
             ],
           ),
+        ),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: controller.dataSharingConsent,
+          onChanged: (value) {
+            controller.setDataSharingConsent(value ?? false);
+          },
+          title: const Text(
+            'I consent to sharing these details for rider safety.',
+          ),
+          controlAffinity: ListTileControlAffinity.leading,
         ),
       ],
     ),
@@ -250,7 +313,9 @@ class _VehicleStep extends StatelessWidget {
 }
 
 class _FaceStep extends StatefulWidget {
-  const _FaceStep();
+  const _FaceStep({required this.controller});
+
+  final SignupController controller;
 
   @override
   State<_FaceStep> createState() => _FaceStepState();
@@ -287,6 +352,7 @@ class _FaceStepState extends State<_FaceStep> {
       );
       if (!mounted) return;
       setState(() => _isUnlocked = authenticated);
+      widget.controller.setFaceVerified(authenticated);
     } on LocalAuthException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -307,6 +373,7 @@ class _FaceStepState extends State<_FaceStep> {
 
   @override
   Widget build(BuildContext context) => SignupStepLayout(
+    onBack: widget.controller.previousStep,
     step: 4,
     title: 'Face enrollment',
     description: 'Used to unlock the hands-free flow and confirm it is you standing down an SOS.',
@@ -369,6 +436,7 @@ class _VerifyStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SignupStepLayout(
+    onBack: controller.previousStep,
     step: 5,
     title: 'Verify your number',
     description: 'One last step before crash detection can be switched on.',
@@ -385,21 +453,9 @@ class _VerifyStep extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
-        Row(
-          children: List.generate(
-            6,
-            (index) => Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: TextFormField(
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  maxLength: 1,
-                  decoration: const InputDecoration(counterText: ''),
-                ),
-              ),
-            ),
-          ),
+        OtpFields(
+          controllers: controller.otpControllers,
+          validator: controller.validateOtp,
         ),
       ],
     ),

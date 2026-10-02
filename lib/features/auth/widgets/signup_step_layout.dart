@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'auth_flow_widgets.dart';
+
 class SignupStepLayout extends StatelessWidget {
   const SignupStepLayout({
     super.key,
@@ -7,12 +9,14 @@ class SignupStepLayout extends StatelessWidget {
     required this.title,
     required this.description,
     required this.child,
+    this.onBack,
   });
 
   final int step;
   final String title;
   final String description;
   final Widget child;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -21,13 +25,11 @@ class SignupStepLayout extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Step ${step + 1} of 6', style: _eyebrowStyle),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: (step + 1) / 6,
-            minHeight: 3,
-            backgroundColor: const Color(0xFFE5E7EB),
-            color: const Color(0xFFE4001B),
+          AuthFlowHeader(
+            label: 'Create account',
+            step: step + 1,
+            totalSteps: 6,
+            onBack: onBack,
           ),
           const SizedBox(height: 24),
           Text(
@@ -45,12 +47,6 @@ class SignupStepLayout extends StatelessWidget {
       ),
     );
   }
-
-  static const _eyebrowStyle = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w600,
-    color: Color(0xFF7B818C),
-  );
 }
 
 class SignupField extends StatelessWidget {
@@ -71,13 +67,95 @@ class SignupField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      keyboardType: keyboardType,
-      obscureText: obscureText,
-      decoration: InputDecoration(labelText: label),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AuthField(
+        controller: controller,
+        label: label,
+        validator: validator,
+        keyboardType: keyboardType,
+        obscureText: obscureText,
+      ),
     );
+  }
+}
+
+class SignupDateField extends StatelessWidget {
+  const SignupDateField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.validator,
+    required this.firstDate,
+    required this.lastDate,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String? Function(String?) validator;
+  final DateTime firstDate;
+  final DateTime lastDate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AuthField(
+        controller: controller,
+        label: label,
+        readOnly: true,
+        validator: validator,
+        onTap: () => _pickDate(context),
+        suffixIcon: const Icon(Icons.calendar_today_outlined),
+      ),
+    );
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final currentValue = _parseDate(controller.text);
+    final today = DateUtils.dateOnly(DateTime.now());
+    final boundedInitialDate =
+        currentValue != null &&
+            !currentValue.isBefore(firstDate) &&
+            !currentValue.isAfter(lastDate)
+        ? currentValue
+        : (today.isBefore(firstDate)
+              ? firstDate
+              : today.isAfter(lastDate)
+              ? lastDate
+              : today);
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: boundedInitialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: label,
+      fieldLabelText: label,
+      errorFormatText: 'Use the calendar to select a date',
+      errorInvalidText: 'Select a valid date',
+    );
+    if (pickedDate == null) return;
+
+    final date = DateUtils.dateOnly(pickedDate);
+    controller.text =
+        '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year.toString().padLeft(4, '0')}';
+  }
+
+  DateTime? _parseDate(String value) {
+    final parts = value.trim().split('/');
+    if (parts.length != 3) return null;
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+    if (day == null || month == null || year == null) return null;
+
+    final date = DateTime(year, month, day);
+    return date.year == year && date.month == month && date.day == day
+        ? DateUtils.dateOnly(date)
+        : null;
   }
 }
 
