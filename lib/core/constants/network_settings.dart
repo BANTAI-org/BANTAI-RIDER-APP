@@ -10,7 +10,7 @@ class NetworkSettings {
   );
 
   static const String signInPath = '/auth/local/signin';
-  static const String signUpPath = '/auth/local/signup';
+  static const String driverRegistrationPath = '/drivers/register';
   static const String refreshPath = '/auth/refresh';
 
   static String _required(String key) {
