@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/repositories/auth_repository.dart';
 import '../controllers/signup_controller.dart';
 import '../widgets/signup_steps.dart';
@@ -51,48 +52,37 @@ class _SignupPageState extends State<SignupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(
-          _controller.currentStep == 0
-              ? 'Create account'
-              : 'Create account · Step ${_controller.currentStep + 1} of ${SignupController.stepCount}',
-        ),
-        leading: _controller.currentStep == 0
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: _controller.previousStep,
-              ),
-      ),
-      body: Column(
-        children: [
-          Expanded(child: SignupStepView(controller: _controller)),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _controller.isLoading
-                    ? null
-                    : (_controller.isLastStep
-                          ? _handleSignup
-                          : _controller.nextStep),
-                child: _controller.isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        _controller.isLastStep
-                            ? 'Verify & Create Account'
-                            : 'Continue',
-                      ),
+      backgroundColor: AppTheme.surface,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(child: SignupStepView(controller: _controller)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _controller.isLoading
+                      ? null
+                      : (_controller.isLastStep
+                            ? _handleSignup
+                            : _controller.nextStep),
+                  child: _controller.isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          _controller.isLastStep
+                              ? 'Verify & Create Account'
+                              : 'Continue',
+                        ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

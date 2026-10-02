@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../../domain/entities/driver_registration.dart';
 import '../../../domain/repositories/auth_repository.dart';
 
 class SignupController extends ChangeNotifier {
@@ -20,8 +21,10 @@ class SignupController extends ChangeNotifier {
   bool _isRestoring = true;
   bool _isDisposed = false;
   final formKey = GlobalKey<FormState>();
-  final fullNameController = TextEditingController();
+  final firstNameController = TextEditingController();
+  final lastNameController = TextEditingController();
   final birthDateController = TextEditingController();
+  final addressController = TextEditingController();
   final mobileController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
@@ -29,6 +32,7 @@ class SignupController extends ChangeNotifier {
   final licenseNumberController = TextEditingController();
   final licenseExpiryController = TextEditingController();
   final yearsRidingController = TextEditingController();
+  final serviceProviderController = TextEditingController(text: 'Angkas');
   final operatorIdController = TextEditingController();
   final plateNumberController = TextEditingController();
   final motorcycleController = TextEditingController();
@@ -38,6 +42,10 @@ class SignupController extends ChangeNotifier {
   final emergencyNameController = TextEditingController();
   final emergencyRelationController = TextEditingController();
   final emergencyNumberController = TextEditingController();
+  final otpControllers = List.generate(6, (_) => TextEditingController());
+  bool _faceVerified = false;
+  bool get faceVerified => _faceVerified;
+  bool dataSharingConsent = false;
 
   static const stepCount = 6;
   int _currentStep = 0;
@@ -54,8 +62,10 @@ class SignupController extends ChangeNotifier {
   }
 
   List<TextEditingController> get _textControllers => [
-    fullNameController,
+    firstNameController,
+    lastNameController,
     birthDateController,
+    addressController,
     mobileController,
     emailController,
     passwordController,
@@ -72,7 +82,18 @@ class SignupController extends ChangeNotifier {
     emergencyNameController,
     emergencyRelationController,
     emergencyNumberController,
+    ...otpControllers,
   ];
+
+  void setFaceVerified(bool value) {
+    _faceVerified = value;
+    notifyListeners();
+  }
+
+  void setDataSharingConsent(bool value) {
+    dataSharingConsent = value;
+    notifyListeners();
+  }
 
   void _scheduleDraftSave() {
     if (_isRestoring || _isDisposed) return;
@@ -124,9 +145,11 @@ class SignupController extends ChangeNotifier {
   }
 
   Map<String, TextEditingController> get _draftFields => {
-    'fullName': fullNameController,
+    'firstName': firstNameController,
+    'lastName': lastNameController,
     'birthDate': birthDateController,
     'mobile': mobileController,
+    'address': addressController,
     'email': emailController,
     'password': passwordController,
     'confirmPassword': confirmPasswordController,
@@ -146,6 +169,7 @@ class SignupController extends ChangeNotifier {
 
   bool nextStep() {
     if (!(formKey.currentState?.validate() ?? false)) return false;
+    if (_currentStep == 4 && !_faceVerified) return false;
     if (!isLastStep) {
       _currentStep++;
       notifyListeners();
@@ -164,19 +188,58 @@ class SignupController extends ChangeNotifier {
 
   Future<bool> signup() async {
     if (!(formKey.currentState?.validate() ?? false)) return false;
+    if (!_faceVerified || !dataSharingConsent) return false;
     _isLoading = true;
     notifyListeners();
     try {
-      await _authRepository.signup(
-        email: emailController.text.trim(),
+      final registration = DriverRegistration(
+        firstName: firstNameController.text.trim(),
+        lastName: lastNameController.text.trim(),
+        dateOfBirth: _toIsoDate(birthDateController.text),
+        address: addressController.text.trim(),
+        mobileNumber: _toApiMobile(mobileController.text),
+        email: emailController.text.trim().toLowerCase(),
         password: passwordController.text,
+        serviceProvider: serviceProviderController.text,
+        serviceId: operatorIdController.text.trim(),
+        licenseNumber: licenseNumberController.text.trim(),
+        licenseExpiresAt: _toIsoDate(licenseExpiryController.text),
+        yearsRiding: int.parse(yearsRidingController.text.trim()),
+        plateNumber: plateNumberController.text.trim(),
+        vehicleModel: motorcycleController.text.trim(),
+        vehicleColor: bodyColorController.text.trim(),
+        bloodType: bloodTypeController.text.trim(),
+        medicalConditions: medicalConditionsController.text.trim(),
+        emergencyContacts: [
+          {
+            'name': emergencyNameController.text.trim(),
+            'relation': emergencyRelationController.text.trim(),
+            'number': _toApiMobile(emergencyNumberController.text),
+          },
+        ],
+        otpCode: otpControllers.map((controller) => controller.text).join(),
+        dataSharingConsent: dataSharingConsent,
       );
+      await _authRepository.signup(registration);
       await clearDraft();
       return true;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  String _toIsoDate(String value) {
+    final parts = value.trim().split('/');
+    if (parts.length != 3) throw const FormatException('Invalid date');
+    return '${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}';
+  }
+
+  String _toApiMobile(String value) {
+    final digits = value.trim().replaceAll(RegExp(r'[\s-]'), '');
+    if (digits.startsWith('+63')) return digits;
+    if (digits.startsWith('09')) return '+63${digits.substring(1)}';
+    return digits;
   }
 
   String? validateEmail(String? value) {
@@ -204,9 +267,68 @@ class SignupController extends ChangeNotifier {
     return null;
   }
 
+  String? validateDate(String? value) {
+    if (validateRequired(value) != null) return 'Enter a date';
+    final parts = value!.trim().split('/');
+    if (parts.length != 3 ||
+        parts[0].length != 2 ||
+        parts[1].length != 2 ||
+        parts[2].length != 4 ||
+        int.tryParse(parts[0]) == null ||
+        int.tryParse(parts[1]) == null ||
+        int.tryParse(parts[2]) == null) {
+      return 'Use DD/MM/YYYY';
+    }
+    return null;
+  }
+
+  String? validateYearsRiding(String? value) {
+    final years = int.tryParse(value?.trim() ?? '');
+    if (years == null || years < 0 || years > 80) {
+      return 'Enter a number from 0 to 80';
+    }
+    return null;
+  }
+
+  String? validateBloodType(String? value) {
+    const bloodTypes = {
+      'A+',
+      'A-',
+      'B+',
+      'B-',
+      'AB+',
+      'AB-',
+      'O+',
+      'O-',
+      'unknown',
+    };
+    if (!bloodTypes.contains(value?.trim())) {
+      return 'Use a valid blood type, or unknown';
+    }
+    return null;
+  }
+
   String? validateMobile(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Enter your mobile number';
+    }
+    final normalized = _toApiMobile(value);
+    if (!RegExp(r'^\+639\d{9}$').hasMatch(normalized)) {
+      return 'Use a valid PH number (+639XXXXXXXXX)';
+    }
+    return null;
+  }
+
+  String? validateAddress(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Enter your home address';
+    }
+    return null;
+  }
+
+  String? validateOtp(String? value) {
+    if (value == null || !RegExp(r'^\d$').hasMatch(value)) {
+      return 'Enter one digit';
     }
     return null;
   }
@@ -218,12 +340,14 @@ class SignupController extends ChangeNotifier {
     for (final controller in _textControllers) {
       controller.removeListener(_scheduleDraftSave);
     }
-    fullNameController.dispose();
+    firstNameController.dispose();
+    lastNameController.dispose();
     birthDateController.dispose();
     mobileController.dispose();
     emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
+    serviceProviderController.dispose();
     licenseNumberController.dispose();
     licenseExpiryController.dispose();
     yearsRidingController.dispose();
@@ -236,6 +360,9 @@ class SignupController extends ChangeNotifier {
     emergencyNameController.dispose();
     emergencyRelationController.dispose();
     emergencyNumberController.dispose();
+    for (final controller in otpControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 }

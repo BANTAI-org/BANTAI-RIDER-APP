@@ -3,7 +3,7 @@ import 'package:local_auth/local_auth.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../controllers/signup_controller.dart';
-import 'auth_flow_widgets.dart';
+import 'forgot_password_widgets.dart';
 import 'signup_step_layout.dart';
 
 class SignupStepView extends StatelessWidget {

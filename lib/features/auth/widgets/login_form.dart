@@ -10,6 +10,7 @@ class LoginForm extends StatelessWidget {
     required this.controller,
     required this.onLogin,
     this.onSignUp,
+    this.onForgotPassword,
   });
 
   static const themeRed = Color(0xFFE51D24);
@@ -17,6 +18,7 @@ class LoginForm extends StatelessWidget {
   final LoginController controller;
   final VoidCallback onLogin;
   final VoidCallback? onSignUp;
+  final VoidCallback? onForgotPassword;
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +84,7 @@ class LoginForm extends StatelessWidget {
                   ],
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: onForgotPassword,
                   child: const Text('Forgot Password?'),
                 ),
               ],

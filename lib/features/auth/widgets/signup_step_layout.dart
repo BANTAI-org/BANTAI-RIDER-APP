@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'auth_flow_widgets.dart';
+import 'forgot_password_widgets.dart';
 
 class SignupStepLayout extends StatelessWidget {
   const SignupStepLayout({

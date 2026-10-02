@@ -4,6 +4,7 @@ import '../../../domain/repositories/auth_repository.dart';
 import '../controllers/login_controller.dart';
 import '../widgets/login_form.dart';
 import '../widgets/login_header.dart';
+import 'forgot_password.dart';
 import 'signup.dart';
 
 class LoginPage extends StatefulWidget {
@@ -76,6 +77,11 @@ class _LoginPageState extends State<LoginPage> {
                             builder: (_) => SignupPage(
                               authRepository: widget.authRepository,
                             ),
+                          ),
+                        ),
+                        onForgotPassword: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordPage(),
                           ),
                         ),
                       ),

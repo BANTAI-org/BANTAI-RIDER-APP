@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/forgot_password_controller.dart';
-import '../widgets/auth_flow_widgets.dart';
+import '../widgets/forgot_password_widgets.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
