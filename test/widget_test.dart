@@ -7,10 +7,10 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:banta_responder_app/main.dart';
-import 'package:banta_responder_app/core/network/api_client.dart';
-import 'package:banta_responder_app/data/datasources/auth_remote_data_source.dart';
-import 'package:banta_responder_app/data/repositories/auth_repository_impl.dart';
+import 'package:bantai_rider_app/main.dart';
+import 'package:bantai_rider_app/core/network/api_client.dart';
+import 'package:bantai_rider_app/data/datasources/auth_remote_data_source.dart';
+import 'package:bantai_rider_app/data/repositories/auth_repository_impl.dart';
 
 void main() {
   testWidgets('shows the login screen', (WidgetTester tester) async {
