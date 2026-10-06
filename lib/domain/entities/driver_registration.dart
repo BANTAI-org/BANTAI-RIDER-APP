@@ -18,7 +18,6 @@ class DriverRegistration {
     required this.bloodType,
     required this.medicalConditions,
     required this.emergencyContacts,
-    required this.otpCode,
     required this.dataSharingConsent,
   });
 
@@ -40,7 +39,6 @@ class DriverRegistration {
   final String bloodType;
   final String medicalConditions;
   final List<Map<String, String>> emergencyContacts;
-  final String otpCode;
   final bool dataSharingConsent;
 
   Map<String, dynamic> toJson() => {
@@ -64,6 +62,5 @@ class DriverRegistration {
         'medical_conditions': medicalConditions,
         'emergency_contacts': emergencyContacts,
         'data_sharing_consent': dataSharingConsent,
-        'otp_code': otpCode,
       };
 }

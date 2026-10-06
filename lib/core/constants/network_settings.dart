@@ -12,6 +12,8 @@ class NetworkSettings {
   static const String signInPath = '/auth/local/signin';
   static const String driverRegistrationPath = '/drivers/register';
   static const String refreshPath = '/auth/refresh';
+  static const String otpSendPath = '/sms/otp/send';
+  static const String otpVerificationSignupPath = '/sms/otp/verify';
 
   static String _required(String key) {
     final value = dotenv.env[key]?.trim();

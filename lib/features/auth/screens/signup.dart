@@ -36,6 +36,8 @@ class _SignupPageState extends State<SignupPage> {
 
   Future<void> _handleSignup() async {
     try {
+      if (!await _controller.otpSignupVerification()) return;
+
       if (await _controller.signup() && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Account created successfully!')),

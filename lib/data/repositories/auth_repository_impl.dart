@@ -13,6 +13,17 @@ class AuthRepositoryImpl implements AuthRepository {
       _remoteDataSource.login(email: email, password: password);
 
   @override
+  Future<void> otpSend({required String contactNumber}) =>
+    _remoteDataSource.otpSend(contactNumber: contactNumber);
+
+  @override
+  Future<void> otpSignupVerification({
+    required String contactNumber,
+    required String otpCode,
+  }) =>
+   _remoteDataSource.otpVerifySignup(contactNumber: contactNumber, otpCode: otpCode);
+
+  @override
   Future<void> signup(DriverRegistration registration) =>
       _remoteDataSource.signup(registration);
 }

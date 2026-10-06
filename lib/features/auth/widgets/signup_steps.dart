@@ -143,6 +143,7 @@ class _LicenseStep extends StatelessWidget {
           title: 'Service provider',
           child: DropdownMenuFormField<String>(
             controller: controller.serviceProviderController,
+            validator: controller.validateServiceProvider,
             width: double.infinity,
             expandedInsets: EdgeInsets.zero,
             inputDecorationTheme: const InputDecorationTheme(
@@ -169,10 +170,10 @@ class _LicenseStep extends StatelessWidget {
               maximumSize: WidgetStatePropertyAll(Size.fromHeight(240)),
             ),
             dropdownMenuEntries: const [
-              DropdownMenuEntry(value: 'Angkas', label: 'Angkas'),
-              DropdownMenuEntry(value: 'Move It', label: 'Move It'),
-              DropdownMenuEntry(value: 'JoyRide', label: 'JoyRide'),
-              DropdownMenuEntry(value: 'Grab', label: 'Grab'),
+              DropdownMenuEntry(value: 'angkas', label: 'Angkas'),
+              DropdownMenuEntry(value: 'move_it', label: 'Move It'),
+              DropdownMenuEntry(value: 'joyride', label: 'JoyRide'),
+              DropdownMenuEntry(value: 'independent', label: 'Independent'),
             ],
           ),
         ),
@@ -210,7 +211,7 @@ class _LicenseStep extends StatelessWidget {
               SignupField(
                 controller: controller.operatorIdController,
                 label: 'Operator ID',
-                validator: controller.validateRequired,
+                validator: controller.validateServiceId,
               ),
             ],
           ),
@@ -353,6 +354,7 @@ class _FaceStepState extends State<_FaceStep> {
       if (!mounted) return;
       setState(() => _isUnlocked = authenticated);
       widget.controller.setFaceVerified(authenticated);
+      widget.controller.otpSend();
     } on LocalAuthException catch (error) {
       if (!mounted) return;
       setState(() {

@@ -19,6 +19,22 @@ class AuthRemoteDataSource {
     return AuthTokensModel.fromJson(response);
   }
 
+  Future<void> otpSend({required String contactNumber}) async {
+    await _apiClient.post(NetworkSettings.otpSendPath, {
+      'm_number': contactNumber,
+    });
+  }
+
+  Future<void> otpVerifySignup({
+    required String contactNumber,
+    required String otpCode
+  }) async {
+    await _apiClient.post(NetworkSettings.otpVerificationSignupPath, {
+      'm_number': contactNumber,
+      'otp_code': otpCode,
+    });
+  }
+
   Future<void> signup(DriverRegistration registration) async {
     await _apiClient.post(
       NetworkSettings.driverRegistrationPath,
