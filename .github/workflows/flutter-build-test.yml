@@ -81,7 +81,7 @@ jobs:
 
       - name: Generate iOS platform files
         run: |
-          flutter create --platforms=ios --overwrite .
+          flutter create --platforms=ios --no-pub .
           test -f ios/Podfile
 
       - name: Analyze
