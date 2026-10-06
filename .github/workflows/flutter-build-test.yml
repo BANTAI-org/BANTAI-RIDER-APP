@@ -80,17 +80,15 @@ jobs:
         run: flutter pub get
 
       - name: Generate iOS platform files
-        run: flutter create --platforms=ios .
+        run: |
+          flutter create --platforms=ios --overwrite .
+          test -f ios/Podfile
 
       - name: Analyze
         run: flutter analyze
 
       - name: Run tests
         run: flutter test
-
-      - name: Install CocoaPods dependencies
-        working-directory: ios
-        run: pod install --repo-update
 
       - name: Build iOS
         run: flutter build ios --release --no-codesign
