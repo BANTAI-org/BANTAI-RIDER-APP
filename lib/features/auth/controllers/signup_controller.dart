@@ -32,7 +32,7 @@ class SignupController extends ChangeNotifier {
   final licenseNumberController = TextEditingController();
   final licenseExpiryController = TextEditingController();
   final yearsRidingController = TextEditingController();
-  final serviceProviderController = TextEditingController(text: 'Angkas');
+  final serviceProviderController = TextEditingController(text: 'angkas');
   final operatorIdController = TextEditingController();
   final plateNumberController = TextEditingController();
   final motorcycleController = TextEditingController();
@@ -43,6 +43,7 @@ class SignupController extends ChangeNotifier {
   final emergencyRelationController = TextEditingController();
   final emergencyNumberController = TextEditingController();
   final otpControllers = List.generate(6, (_) => TextEditingController());
+  String? _verifiedMobileNumber;
   bool _faceVerified = false;
   bool get faceVerified => _faceVerified;
   bool dataSharingConsent = false;
@@ -82,7 +83,6 @@ class SignupController extends ChangeNotifier {
     emergencyNameController,
     emergencyRelationController,
     emergencyNumberController,
-    ...otpControllers,
   ];
 
   void setFaceVerified(bool value) {
@@ -186,12 +186,57 @@ class SignupController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> otpSend() async {
+    if (!(formKey.currentState?.validate() ?? false)) return false;
+
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _authRepository.otpSend(
+        contactNumber: _toApiMobile(mobileController.text),
+      );
+      return true;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> otpSignupVerification() async {
+    if (!(formKey.currentState?.validate() ?? false)) return false;
+
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _verifySignupOtp();
+      _verifiedMobileNumber = _toApiMobile(mobileController.text);
+      return true;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _verifySignupOtp() async {
+    final otpCode = otpControllers.map((controller) => controller.text).join();
+    await _authRepository.otpSignupVerification(
+      contactNumber: _toApiMobile(mobileController.text),
+      otpCode: otpCode,
+    );
+  }
+
   Future<bool> signup() async {
     if (!(formKey.currentState?.validate() ?? false)) return false;
     if (!_faceVerified || !dataSharingConsent) return false;
     _isLoading = true;
     notifyListeners();
     try {
+      final mobileNumber = _toApiMobile(mobileController.text);
+      if (_verifiedMobileNumber != mobileNumber) {
+        await _verifySignupOtp();
+        _verifiedMobileNumber = mobileNumber;
+      }
+
       final registration = DriverRegistration(
         firstName: firstNameController.text.trim(),
         lastName: lastNameController.text.trim(),
@@ -200,8 +245,8 @@ class SignupController extends ChangeNotifier {
         mobileNumber: _toApiMobile(mobileController.text),
         email: emailController.text.trim().toLowerCase(),
         password: passwordController.text,
-        serviceProvider: serviceProviderController.text,
-        serviceId: operatorIdController.text.trim(),
+        serviceProvider: _toApiServiceProvider(serviceProviderController.text),
+        serviceId: _serviceIdForRegistration,
         licenseNumber: licenseNumberController.text.trim(),
         licenseExpiresAt: _toIsoDate(licenseExpiryController.text),
         yearsRiding: int.parse(yearsRidingController.text.trim()),
@@ -217,7 +262,6 @@ class SignupController extends ChangeNotifier {
             'number': _toApiMobile(emergencyNumberController.text),
           },
         ],
-        otpCode: otpControllers.map((controller) => controller.text).join(),
         dataSharingConsent: dataSharingConsent,
       );
       await _authRepository.signup(registration);
@@ -240,6 +284,43 @@ class SignupController extends ChangeNotifier {
     if (digits.startsWith('+63')) return digits;
     if (digits.startsWith('09')) return '+63${digits.substring(1)}';
     return digits;
+  }
+
+  String _toApiServiceProvider(String value) {
+    switch (value.trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_')) {
+      case 'angkas':
+        return 'angkas';
+      case 'move_it':
+        return 'move_it';
+      case 'joyride':
+      case 'joy_ride':
+        return 'joyride';
+      case 'independent':
+        return 'independent';
+      default:
+        return value.trim();
+    }
+  }
+
+  String? get _serviceIdForRegistration {
+    final provider = _toApiServiceProvider(serviceProviderController.text);
+    if (provider == 'independent') return null;
+    return operatorIdController.text.trim();
+  }
+
+  String? validateServiceProvider(String? value) {
+    const providers = {'angkas', 'move_it', 'joyride', 'independent'};
+    if (!providers.contains(_toApiServiceProvider(value ?? ''))) {
+      return 'Select a valid service provider';
+    }
+    return null;
+  }
+
+  String? validateServiceId(String? value) {
+    if (_toApiServiceProvider(serviceProviderController.text) == 'independent') {
+      return null;
+    }
+    return validateRequired(value);
   }
 
   String? validateEmail(String? value) {

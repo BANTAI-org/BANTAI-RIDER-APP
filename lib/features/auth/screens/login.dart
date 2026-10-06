@@ -58,7 +58,6 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: LoginForm.themeRed,
       body: SafeArea(
-        bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
