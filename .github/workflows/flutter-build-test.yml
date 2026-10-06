@@ -81,18 +81,20 @@ jobs:
 
       - name: Generate iOS platform files
         run: |
-          flutter config --enable-ios
           temp_project="$(mktemp -d)"
           trap 'rm -rf "$temp_project"' EXIT
-          flutter create --platforms=ios --no-pub --project-name bantai_rider_app "$temp_project"
+          flutter create \
+            --template=app \
+            --platforms=ios \
+            --no-pub \
+            --project-name=bantai_rider_app \
+            "$temp_project"
           if [ ! -f "$temp_project/ios/Podfile" ]; then
-            echo "Flutter did not generate ios/Podfile"
-            find "$temp_project" -maxdepth 2 -type f | sort
+            echo "::error::Flutter did not generate ios/Podfile on the macOS runner"
             exit 1
           fi
-          mkdir -p ios
-          cp -R "$temp_project/ios/." ios/.
-          test -f ios/Podfile
+          rm -rf ios
+          cp -R "$temp_project/ios" ./ios
 
       - name: Analyze
         run: flutter analyze
