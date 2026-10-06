@@ -84,7 +84,13 @@ jobs:
           temp_project="$(mktemp -d)"
           trap 'rm -rf "$temp_project"' EXIT
           flutter create --platforms=ios --no-pub --project-name bantai_rider_app "$temp_project"
-          cp -R "$temp_project/ios" ./ios
+          if [ ! -f "$temp_project/ios/Podfile" ]; then
+            echo "Flutter did not generate ios/Podfile"
+            find "$temp_project" -maxdepth 2 -type f | sort
+            exit 1
+          fi
+          mkdir -p ios
+          cp -R "$temp_project/ios/." ios/.
           test -f ios/Podfile
 
       - name: Analyze
