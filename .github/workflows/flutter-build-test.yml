@@ -76,25 +76,22 @@ jobs:
       - name: Create environment file
         run: cp .env.example .env
 
-      - name: Install dependencies
-        run: flutter pub get
-
       - name: Generate iOS platform files
         run: |
-          temp_project="$(mktemp -d)"
-          trap 'rm -rf "$temp_project"' EXIT
-          flutter create \
-            --template=app \
-            --platforms=ios \
-            --no-pub \
-            --project-name=bantai_rider_app \
-            "$temp_project"
-          if [ ! -f "$temp_project/ios/Podfile" ]; then
-            echo "::error::Flutter did not generate ios/Podfile on the macOS runner"
+          if [ ! -d ios/Runner.xcodeproj ]; then
+            flutter create \
+              --platforms=ios \
+              --no-pub \
+              --project-name=bantai_rider_app \
+              .
+          fi
+          if [ ! -d ios/Runner.xcodeproj ]; then
+            echo "::error::Flutter did not generate the iOS Runner project"
             exit 1
           fi
-          rm -rf ios
-          cp -R "$temp_project/ios" ./ios
+
+      - name: Install dependencies
+        run: flutter pub get
 
       - name: Analyze
         run: flutter analyze
