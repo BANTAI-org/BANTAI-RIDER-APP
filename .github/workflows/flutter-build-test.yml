@@ -81,6 +81,7 @@ jobs:
 
       - name: Generate iOS platform files
         run: |
+          flutter config --enable-ios
           temp_project="$(mktemp -d)"
           trap 'rm -rf "$temp_project"' EXIT
           flutter create --platforms=ios --no-pub --project-name bantai_rider_app "$temp_project"
