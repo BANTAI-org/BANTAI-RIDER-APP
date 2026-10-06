@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
-
 import '../../../core/theme/app_theme.dart';
 import '../controllers/signup_controller.dart';
 import 'forgot_password_widgets.dart';
 import 'signup_step_layout.dart';
 
 class SignupStepView extends StatelessWidget {
-  const SignupStepView({super.key, required this.controller});
+  const SignupStepView({
+    super.key,
+    required this.controller,
+    required this.onExit,
+  });
 
   final SignupController controller;
+  final VoidCallback onExit;
 
   @override
   Widget build(BuildContext context) {
     return Form(
       key: controller.formKey,
       child: switch (controller.currentStep) {
-        0 => _PersonalStep(controller: controller),
+        0 => _PersonalStep(controller: controller, onExit: onExit),
         1 => _AccountStep(controller: controller),
         2 => _LicenseStep(controller: controller),
         3 => _VehicleStep(controller: controller),
@@ -28,11 +32,13 @@ class SignupStepView extends StatelessWidget {
 }
 
 class _PersonalStep extends StatelessWidget {
-  const _PersonalStep({required this.controller});
+  const _PersonalStep({required this.controller, required this.onExit});
   final SignupController controller;
+  final VoidCallback onExit;
 
   @override
   Widget build(BuildContext context) => SignupStepLayout(
+    onBack: onExit,
     step: 0,
     title: 'Personal details',
     description:

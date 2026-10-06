@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/repositories/auth_repository.dart';
 import '../controllers/signup_controller.dart';
@@ -58,7 +57,12 @@ class _SignupPageState extends State<SignupPage> {
       body: SafeArea(
         child: Column(
           children: [
-            Expanded(child: SignupStepView(controller: _controller)),
+            Expanded(
+              child: SignupStepView(
+                controller: _controller,
+                onExit: () => Navigator.of(context).pop(),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: SizedBox(

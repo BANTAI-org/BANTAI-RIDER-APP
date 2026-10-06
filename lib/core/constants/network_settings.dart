@@ -14,7 +14,12 @@ class NetworkSettings {
   static const String refreshPath = '/auth/refresh';
   static const String otpSendPath = '/sms/otp/send';
   static const String otpVerificationSignupPath = '/sms/otp/verify';
-  static const String forgotPasswordRequestPath = '/drivers/forgot-password/request';
+  static const String forgotPasswordRequestPath =
+      '/drivers/forgot-password/request';
+  static const String forgotPasswordVerifyPath =
+      '/drivers/forgot-password/verify';
+  static const String forgotPasswordResetPath =
+      '/drivers/forgot-password/reset';
 
   static String _required(String key) {
     final value = dotenv.env[key]?.trim();
