@@ -79,6 +79,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate iOS platform files
+        run: flutter create --platforms=ios .
+
       - name: Analyze
         run: flutter analyze
 
@@ -86,9 +89,8 @@ jobs:
         run: flutter test
 
       - name: Install CocoaPods dependencies
-        run: |
-          cd ios
-          pod install --repo-update
+        working-directory: ios
+        run: pod install --repo-update
 
       - name: Build iOS
         run: flutter build ios --release --no-codesign
