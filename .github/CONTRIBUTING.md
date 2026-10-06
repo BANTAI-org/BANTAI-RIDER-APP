@@ -1,6 +1,6 @@
-# Contributing to NutriBin User
+# Contributing to BANTAI RIDER APP
 
-Thank you for your interest in contributing to NutriBin User! We welcome improvements, bug reports, and new feature ideas.
+Thank you for your interest in contributing to BANTAI Rider App! We welcome improvements, bug reports, and new feature ideas.
 
 ## Project Overview
 
