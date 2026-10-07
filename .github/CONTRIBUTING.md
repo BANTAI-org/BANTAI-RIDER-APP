@@ -1,126 +1,130 @@
-# Contributing to BANTAI RIDER APP
+# Contributing to BANTAI Rider App
 
-Thank you for your interest in contributing to BANTAI Rider App! We welcome improvements, bug reports, and new feature ideas.
+Thank you for contributing to the BANTAI Rider App. This project is a Flutter
+client for BANTAI riders, and contributions are welcome for bug fixes,
+improvements, documentation, and new features.
+
+## Before You Start
+
+- Check existing issues and pull requests before starting work.
+- Open an issue first for significant changes or new features.
+- Keep changes focused and explain the user-facing impact in the pull request.
+- Do not commit `.env`, credentials, API keys, or other secrets.
 
 ## Project Overview
 
-NutriBin User is a platform designed to bridge the gap between household waste management and sustainable agriculture. It allows users to monitor waste levels, manage composting processes, and track fertilizer analytics.
+The app is built with Flutter and communicates with the BANTAI NestJS API.
+Authentication and API access are organized using a layered structure:
 
-### Tech Stack
+- `domain/` contains entities and repository contracts.
+- `data/` contains models, remote data sources, and repository
+  implementations.
+- `features/` contains user-facing flows, controllers, screens, and widgets.
+- `core/` contains shared networking, configuration, themes, and assets.
 
-- **Backend**: [NestJS](https://nestjs.com/) (TypeScript), [PostgreSQL](https://www.postgresql.org/) (via [Supabase](https://supabase.com/)), [Brevo](https://www.brevo.com/) (Email), [IprogSMS](https://iprogsms.com/) (SMS).
-- **Frontend**: [React](https://react.dev/) (Vite), [Tailwind CSS](https://tailwindcss.com/), [Axios](https://axios-http.com/), [React Hook Form](https://react-hook-form.com/), [Zod](https://zod.dev/).
-
-## Project Structure
-
-NutriBin User is split into two main parts:
-
-- `Backend/`: A NestJS application handling the API, database, and third-party services.
-- `Frontend/`: A Vite + React application for the web interface.
-
-## How to Contribute
-
-- Discuss big changes or feature ideas by opening an issue first.
-- For bug reports, please include:
-  - Steps to reproduce the issue.
-  - Expected vs. actual behavior.
-  - Screenshots or logs if applicable.
-- When you're ready to contribute code, open a Pull Request (PR) with a clear title and description.
+See the [README](../README.md) for the current project structure and API
+endpoints.
 
 ## Development Setup
 
 ### Prerequisites
 
-- **Node.js**: v18+ (v20+ recommended).
-- **npm**: v9+ (Installed with Node.js).
-- **PostgreSQL**: Local instance or access to a Supabase project.
+- Flutter stable channel with Dart SDK `3.13.4` or compatible.
+- Android Studio or Xcode for the platform you are developing on.
+- Access to a running BANTAI API instance.
 
-### Backend Setup
+### Configure the App
 
-1. Navigate to the backend directory:
+1. Copy the example environment file:
+
    ```bash
-   cd Backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up your environment variables by creating a `.env` file (copied from `.ENV` template if available). Key variables include:
-   - `DATABASE_URL`: PostgreSQL connection string (Supabase).
-   - `SUPABASE_URL`: Your Supabase project URL.
-   - `SUPABASE_KEY`: Your Supabase API key.
-   - `BREVO_API_KEY`: API key for Brevo email service.
-   - `IPROG_SMS_API_TOKEN`: API token for IprogSMS.
-   - `FRONTEND_URL`: `http://localhost:5173`
-4. Start the development server:
-   ```bash
-   npm run backend
-   ```
-5. (Optional) Seed the database:
-   ```bash
-   npx ts-node scripts/seed-user.ts
+   copy .env.example .env
    ```
 
-### Frontend Setup
+   On macOS or Linux, use `cp .env.example .env`.
 
-1. Navigate to the frontend directory:
-   ```bash
-   cd Frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up your environment variables by creating a `.env` file:
-   - `VITE_API_URL`: `http://localhost:3000`
-   - `VITE_GOOGLE_CLIENT_ID`: Google OAuth Client ID.
-4. Start the development server:
-   ```bash
-   npm run frontend
+2. Set `API_BASE_URL` in `.env` to the API base URL. For an Android emulator,
+   the local API is typically available at:
+
+   ```text
+   http://10.0.2.2:3000/api/v1
    ```
 
-## Branching & PR Guidelines
+   Environment files are bundled into the client application, so do not put
+   secrets in them.
 
-- Create a feature branch from `main`: `feature/short-description` or `fix/short-description`.
-- Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification if possible.
-- Ensure your changes follow the existing code style and pass linting.
+### Install and Run
 
-## Code Quality
+From the project directory:
 
-- **Backend**:
-  - Format code: `npm run format`
-  - Lint code: `npm run lint`
-  - Run tests: `npm run test`
-- **Frontend**:
-  - Lint code: `npm run lint`
+```bash
+flutter pub get
+flutter run
+```
+
+## Making Changes
+
+- Follow the existing Dart and Flutter patterns.
+- Keep widgets focused on presentation and user interaction.
+- Put API and persistence concerns in the `data/` layer.
+- Put shared application behavior in `core/` or the appropriate feature.
+- Update the README or other documentation when behavior or setup changes.
+- Add or update tests for changed behavior.
+
+## Branches and Commits
+
+Create a branch from `main` using one of these formats:
+
+```text
+feature/short-description
+fix/short-description
+docs/short-description
+```
+
+Use clear, imperative commit messages. Conventional Commits are encouraged,
+for example:
+
+```text
+feat: add rider profile screen
+fix: handle expired access tokens
+docs: update local setup instructions
+```
+
+## Quality Checks
+
+Run the same checks used by CI before opening a pull request:
+
+```bash
+flutter analyze
+flutter test
+flutter build apk --release
+```
+
+If you change iOS-specific behavior and have access to macOS, also run:
+
+```bash
+flutter build ios --release --no-codesign
+```
+
+## Pull Requests
+
+Open a pull request against `main` with:
+
+- A concise title describing the change.
+- A description of what changed and why.
+- Steps for testing the change.
+- Screenshots or recordings for UI changes, when useful.
+- Notes about API, environment, or migration changes.
+
+Before requesting review, confirm:
+
+- [ ] I tested the change locally.
+- [ ] `flutter analyze` passes.
+- [ ] `flutter test` passes.
+- [ ] I updated documentation where needed.
+- [ ] I did not include secrets or generated build artifacts.
 
 ## Code of Conduct
 
-Please follow our [Code of Conduct](CODE_OF_CONDUCT.md). Respectful, inclusive behavior is expected.
-
----
-
-## Pull Request Checklist
-
-Before opening a PR, please make sure your changes meet the checklist below:
-
-- [ ] I have tested my changes locally.
-- [ ] My code follows the project's code style.
-- [ ] I have updated documentation if necessary.
-- [ ] All new and existing tests pass.
-
-Suggested PR description template:
-
-```markdown
-### Description
-
-- What changed and why.
-
-### How to test
-
-- Steps to verify the changes.
-
-### Screenshots (if applicable)
-
-- Add any relevant screenshots for frontend changes.
-```
+Please follow the repository's [Code of Conduct](CODE_OF_CONDUCT.md). Be
+respectful, inclusive, and constructive in issues, reviews, and discussions.
