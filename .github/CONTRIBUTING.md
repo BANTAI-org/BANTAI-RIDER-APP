@@ -26,7 +26,7 @@ See the [README](../README.md) for the current project structure and API
 endpoints.
 
 ## Development Setup
-
+ 
 ### Prerequisites
 
 - Flutter stable channel with Dart SDK `3.13.4` or compatible.
