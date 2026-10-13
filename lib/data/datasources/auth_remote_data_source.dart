@@ -15,14 +15,14 @@ class AuthRemoteDataSource {
     final response = await _apiClient.post(NetworkSettings.signInPath, {
       'email': email,
       'password': password,
-    });
+    }, authenticated: false);
     return AuthTokensModel.fromJson(response);
   }
 
   Future<void> otpSend({required String contactNumber}) async {
     await _apiClient.post(NetworkSettings.otpSendPath, {
       'm_number': contactNumber,
-    });
+    }, authenticated: false);
   }
 
   Future<void> otpVerifySignup({
@@ -32,13 +32,14 @@ class AuthRemoteDataSource {
     await _apiClient.post(NetworkSettings.otpVerificationSignupPath, {
       'm_number': contactNumber,
       'otp_code': otpCode,
-    });
+    }, authenticated: false);
   }
 
   Future<void> signup(DriverRegistration registration) async {
     await _apiClient.post(
       NetworkSettings.driverRegistrationPath,
       registration.toJson(),
+      authenticated: false,
     );
   }
 
@@ -49,6 +50,7 @@ class AuthRemoteDataSource {
     final response = await _apiClient.post(
       NetworkSettings.forgotPasswordRequestPath,
       _resetIdentity(email: email, contactNumber: contactNumber),
+      authenticated: false,
     );
     return (response['resend_after_seconds'] as num?)?.toInt() ?? 30;
   }
@@ -64,6 +66,7 @@ class AuthRemoteDataSource {
         ..._resetIdentity(email: email, contactNumber: contactNumber),
         'otp_code': otpCode,
       },
+      authenticated: false,
     );
     return response['reset_token'] as String;
   }
@@ -75,7 +78,7 @@ class AuthRemoteDataSource {
     await _apiClient.post(NetworkSettings.forgotPasswordResetPath, {
       'reset_token': resetToken,
       'new_password': newPassword,
-    });
+    }, authenticated: false);
   }
 
   Map<String, dynamic> _resetIdentity({String? email, String? contactNumber}) {

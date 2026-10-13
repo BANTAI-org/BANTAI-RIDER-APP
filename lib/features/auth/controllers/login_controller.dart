@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/storage/auth_token_storage.dart';
 import '../../../domain/repositories/auth_repository.dart';
 
 class LoginController extends ChangeNotifier {
-  LoginController(this._authRepository);
+  LoginController(this._authRepository, {AuthTokenStorage? tokenStorage})
+    : _tokenStorage = tokenStorage ?? AuthTokenStorage();
 
   final AuthRepository _authRepository;
+  final AuthTokenStorage _tokenStorage;
   final formKey = GlobalKey<FormState>();
   final identifierController = TextEditingController();
   final passwordController = TextEditingController();
@@ -34,10 +37,11 @@ class LoginController extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await _authRepository.login(
+      final tokens = await _authRepository.login(
         email: identifierController.text.trim(),
         password: passwordController.text,
       );
+      await _tokenStorage.save(tokens);
       return true;
     } finally {
       _isLoading = false;

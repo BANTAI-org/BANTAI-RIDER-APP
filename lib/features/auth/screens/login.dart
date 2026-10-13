@@ -4,6 +4,7 @@ import '../../../domain/repositories/auth_repository.dart';
 import '../controllers/login_controller.dart';
 import '../widgets/login_form.dart';
 import '../widgets/login_header.dart';
+import '../../home/screens/home_shell.dart';
 import 'forgot_password.dart';
 import 'signup.dart';
 
@@ -39,8 +40,9 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final didLogin = await _controller.login();
       if (!mounted || !didLogin) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Login successful!')));
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
