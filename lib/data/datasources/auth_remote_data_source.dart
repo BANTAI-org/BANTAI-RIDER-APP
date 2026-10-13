@@ -27,7 +27,7 @@ class AuthRemoteDataSource {
 
   Future<void> otpVerifySignup({
     required String contactNumber,
-    required String otpCode
+    required String otpCode,
   }) async {
     await _apiClient.post(NetworkSettings.otpVerificationSignupPath, {
       'm_number': contactNumber,
@@ -60,7 +60,10 @@ class AuthRemoteDataSource {
   }) async {
     final response = await _apiClient.post(
       NetworkSettings.forgotPasswordVerifyPath,
-      {..._resetIdentity(email: email, contactNumber: contactNumber), 'otp_code': otpCode},
+      {
+        ..._resetIdentity(email: email, contactNumber: contactNumber),
+        'otp_code': otpCode,
+      },
     );
     return response['reset_token'] as String;
   }
@@ -75,10 +78,7 @@ class AuthRemoteDataSource {
     });
   }
 
-  Map<String, dynamic> _resetIdentity({
-    String? email,
-    String? contactNumber,
-  }) {
+  Map<String, dynamic> _resetIdentity({String? email, String? contactNumber}) {
     if (email != null) return {'email': email};
     if (contactNumber != null) return {'m_number': contactNumber};
     throw ArgumentError('An email or contact number is required.');
