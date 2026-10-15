@@ -9,6 +9,7 @@ class LoginForm extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onLogin,
+    required this.onDeviceLogin,
     this.onSignUp,
     this.onForgotPassword,
   });
@@ -17,6 +18,7 @@ class LoginForm extends StatelessWidget {
 
   final LoginController controller;
   final VoidCallback onLogin;
+  final VoidCallback onDeviceLogin;
   final VoidCallback? onSignUp;
   final VoidCallback? onForgotPassword;
 
@@ -112,6 +114,29 @@ class LoginForm extends StatelessWidget {
                         ),
                       )
                     : const Text('Log In'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: controller.isLoading ? null : onDeviceLogin,
+                icon: const Icon(Icons.fingerprint_rounded),
+                label: const Text(
+                  'Use Face ID, fingerprint, or device password',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: themeRed,
+                  side: const BorderSide(color: themeRed),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 24),

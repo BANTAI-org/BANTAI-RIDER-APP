@@ -21,8 +21,8 @@ class FloatingNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(42),
@@ -74,19 +74,19 @@ class _NavigationItem extends StatelessWidget {
       label: destination.label,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
+          padding: const EdgeInsets.symmetric(vertical: 1),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(destination.icon, color: color, size: 38),
-              const SizedBox(height: 2),
+              Icon(destination.icon, color: color, size: 27),
+              const SizedBox(height: 1),
               Text(
                 destination.label,
                 style: TextStyle(
                   color: color,
-                  fontSize: 16,
+                  fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
                 ),
               ),

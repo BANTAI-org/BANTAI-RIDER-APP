@@ -5,7 +5,7 @@ import 'core/network/api_client.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/auth_remote_data_source.dart';
 import 'data/repositories/auth_repository_impl.dart';
-import 'features/auth/screens/login.dart';
+import 'features/auth/screens/auth_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +25,7 @@ class BantaiResponderApp extends StatelessWidget {
     return MaterialApp(
       title: 'BANTAI Rider App',
       theme: AppTheme.light,
-      home: LoginPage(authRepository: authRepository),
+      home: AuthGate(authRepository: authRepository),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../../../domain/repositories/auth_repository.dart';
 import '../controllers/login_controller.dart';
@@ -54,6 +55,45 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _handleDeviceLogin() async {
+    try {
+      final didLogin = await _controller.loginWithDeviceSecurity();
+      if (!mounted) return;
+      if (didLogin) {
+        Navigator.of(
+          context,
+        ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No remembered session is available. Log in and enable Keep me signed in first.',
+          ),
+        ),
+      );
+    } on LocalAuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_deviceAuthErrorMessage(error)),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  String _deviceAuthErrorMessage(LocalAuthException error) {
+    return switch (error.code) {
+      LocalAuthExceptionCode.userCanceled =>
+        'Device authentication was canceled.',
+      LocalAuthExceptionCode.noBiometricsEnrolled ||
+      LocalAuthExceptionCode.noBiometricHardware =>
+        'Set up Face ID, fingerprint, or a device password first.',
+      _ => 'Device authentication failed. Please try again.',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -73,6 +113,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: LoginForm(
                         controller: _controller,
                         onLogin: _handleLogin,
+                        onDeviceLogin: _handleDeviceLogin,
                         onSignUp: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => SignupPage(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../widgets/floating_navigation_bar.dart';
 import 'ride.dart';
@@ -19,33 +20,44 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5FA),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: const [
-          RidePage(),
-          _PlaceholderPage(
-            title: 'Rescue',
-            icon: Icons.emergency_outlined,
-          ),
-          _PlaceholderPage(
-            title: 'Scan',
-            icon: Icons.qr_code_scanner_rounded,
-          ),
-          _PlaceholderPage(
-            title: 'Comms',
-            icon: Icons.bar_chart_rounded,
-          ),
-          _PlaceholderPage(
-            title: 'Profile',
-            icon: Icons.person_outline_rounded,
-          ),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        systemNavigationBarColor: Color(0xFFF5F5FA),
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
       ),
-      bottomNavigationBar: FloatingNavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _selectDestination,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F5FA),
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: const [
+            RidePage(),
+            _PlaceholderPage(
+              title: 'Rescue',
+              icon: Icons.emergency_outlined,
+            ),
+            _PlaceholderPage(
+              title: 'Scan',
+              icon: Icons.qr_code_scanner_rounded,
+            ),
+            _PlaceholderPage(
+              title: 'Comms',
+              icon: Icons.bar_chart_rounded,
+            ),
+            _PlaceholderPage(
+              title: 'Profile',
+              icon: Icons.person_outline_rounded,
+            ),
+          ],
+        ),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.only(bottom: 8),
+          child: FloatingNavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _selectDestination,
+          ),
+        ),
       ),
     );
   }
