@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../widgets/floating_navigation_bar.dart';
+import 'comms.dart';
 import 'ride.dart';
+import 'rescue.dart';
+import 'scan.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -32,18 +35,9 @@ class _HomeShellState extends State<HomeShell> {
           index: _selectedIndex,
           children: const [
             RidePage(),
-            _PlaceholderPage(
-              title: 'Rescue',
-              icon: Icons.emergency_outlined,
-            ),
-            _PlaceholderPage(
-              title: 'Scan',
-              icon: Icons.qr_code_scanner_rounded,
-            ),
-            _PlaceholderPage(
-              title: 'Comms',
-              icon: Icons.bar_chart_rounded,
-            ),
+            RescuePage(),
+            ScanPage(),
+            CommsPage(),
             _PlaceholderPage(
               title: 'Profile',
               icon: Icons.person_outline_rounded,
@@ -64,10 +58,7 @@ class _HomeShellState extends State<HomeShell> {
 }
 
 class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({
-    required this.title,
-    required this.icon,
-  });
+  const _PlaceholderPage({required this.title, required this.icon});
 
   final String title;
   final IconData icon;
@@ -83,10 +74,7 @@ class _PlaceholderPage extends StatelessWidget {
             const SizedBox(height: 14),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             const Text(

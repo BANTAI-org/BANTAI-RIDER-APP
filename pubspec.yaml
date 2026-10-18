@@ -39,6 +39,9 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   local_auth: ^3.0.2
   google_maps_flutter: ^2.18.2
+  geolocator: ^14.0.2
+  camera: ^0.12.1
+  mobile_scanner: ^7.4.2
   
 
 dev_dependencies:
