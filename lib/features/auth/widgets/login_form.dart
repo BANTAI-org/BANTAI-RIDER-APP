@@ -10,6 +10,7 @@ class LoginForm extends StatelessWidget {
     required this.controller,
     required this.onLogin,
     required this.onDeviceLogin,
+    required this.onGoogleLogin,
     this.onSignUp,
     this.onForgotPassword,
   });
@@ -19,6 +20,7 @@ class LoginForm extends StatelessWidget {
   final LoginController controller;
   final VoidCallback onLogin;
   final VoidCallback onDeviceLogin;
+  final VoidCallback onGoogleLogin;
   final VoidCallback? onSignUp;
   final VoidCallback? onForgotPassword;
 
@@ -160,7 +162,7 @@ class LoginForm extends StatelessWidget {
                   child: SocialAuthButton(
                     label: 'Google',
                     icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
-                    onTap: () {},
+                    onTap: onGoogleLogin,
                   ),
                 ),
                 const SizedBox(width: 14),

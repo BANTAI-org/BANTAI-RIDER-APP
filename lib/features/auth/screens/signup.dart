@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/repositories/auth_repository.dart';
+import '../../../data/services/google_auth_service.dart';
 import '../controllers/signup_controller.dart';
 import '../widgets/signup_steps.dart';
+import '../../home/screens/home_shell.dart';
 
 class SignupPage extends StatefulWidget {
-  const SignupPage({super.key, required this.authRepository});
+  const SignupPage({
+    super.key,
+    required this.authRepository,
+    this.googleCredential,
+  });
 
   final AuthRepository authRepository;
+  final GoogleAuthCredential? googleCredential;
 
   @override
   State<SignupPage> createState() => _SignupPageState();
@@ -19,7 +26,10 @@ class _SignupPageState extends State<SignupPage> {
   @override
   void initState() {
     super.initState();
-    _controller = SignupController(widget.authRepository)
+    _controller = SignupController(
+        widget.authRepository,
+        googleCredential: widget.googleCredential,
+      )
       ..addListener(_refresh);
   }
 
@@ -38,6 +48,13 @@ class _SignupPageState extends State<SignupPage> {
       if (!await _controller.otpSignupVerification()) return;
 
       if (await _controller.signup() && mounted) {
+        if (_controller.isGoogleSignup) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeShell()),
+            (_) => false,
+          );
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Account created successfully!')),
         );

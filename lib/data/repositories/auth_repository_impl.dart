@@ -13,6 +13,10 @@ class AuthRepositoryImpl implements AuthRepository {
       _remoteDataSource.login(email: email, password: password);
 
   @override
+  Future<AuthTokens> loginWithGoogle({required String idToken}) =>
+      _remoteDataSource.loginWithGoogle(idToken: idToken);
+
+  @override
   Future<void> otpSend({required String contactNumber}) =>
       _remoteDataSource.otpSend(contactNumber: contactNumber);
 
@@ -26,7 +30,7 @@ class AuthRepositoryImpl implements AuthRepository {
   );
 
   @override
-  Future<void> signup(DriverRegistration registration) =>
+  Future<AuthTokens> signup(DriverRegistration registration) =>
       _remoteDataSource.signup(registration);
 
   @override

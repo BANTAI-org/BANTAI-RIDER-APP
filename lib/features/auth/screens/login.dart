@@ -65,6 +65,7 @@ class _LoginPageState extends State<LoginPage> {
         ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
         return;
       }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -77,6 +78,35 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_deviceAuthErrorMessage(error)),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    try {
+      final credential = await _controller.loginWithGoogle();
+      if (!mounted) return;
+      if (credential != null) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SignupPage(
+              authRepository: widget.authRepository,
+              googleCredential: credential,
+            ),
+          ),
+        );
+      } else if (_controller.googleLoginSucceeded) {
+        Navigator.of(
+          context,
+        ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google authentication failed: $error'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -114,6 +144,7 @@ class _LoginPageState extends State<LoginPage> {
                         controller: _controller,
                         onLogin: _handleLogin,
                         onDeviceLogin: _handleDeviceLogin,
+                        onGoogleLogin: _handleGoogleLogin,
                         onSignUp: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => SignupPage(

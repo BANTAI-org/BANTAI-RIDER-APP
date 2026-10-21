@@ -9,7 +9,27 @@ class NetworkSettings {
     seconds: int.tryParse(dotenv.env['API_TIMEOUT_SECONDS'] ?? '') ?? 15,
   );
 
+  static String get commsSocketBaseUrl {
+    final configured = dotenv.env['COMMS_WEBSOCKET_URL']?.trim();
+    final source = configured != null && configured.isNotEmpty
+        ? configured
+        : baseUrl;
+    final uri = Uri.parse(source);
+    final scheme = uri.scheme == 'wss'
+        ? 'https'
+        : uri.scheme == 'ws'
+        ? 'http'
+        : uri.scheme;
+    return Uri(
+      scheme: scheme,
+      userInfo: uri.userInfo,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+    ).toString().replaceFirst(RegExp(r'/$'), '');
+  }
+
   static const String signInPath = '/auth/local/signin';
+  static const String googleSignInPath = '/auth/google';
   static const String driverRegistrationPath = '/drivers/register';
   static const String refreshPath = '/auth/refresh';
   static const String otpSendPath = '/sms/otp/send';

@@ -27,8 +27,18 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
-            project.findProperty("GOOGLE_MAPS_API_KEY") ?: ""
+        val envFile = file("../../.env")
+        val googleMapsApiKey = project.findProperty("GOOGLE_MAPS_API_KEY")
+            ?.toString()
+            ?: if (envFile.exists()) {
+                envFile.readLines()
+                    .firstOrNull { it.trim().startsWith("GOOGLE_MAPS_API_KEY=") }
+                    ?.substringAfter("=")
+                    ?.trim()
+            } else {
+                null
+            }
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey ?: ""
     }
 
     buildTypes {

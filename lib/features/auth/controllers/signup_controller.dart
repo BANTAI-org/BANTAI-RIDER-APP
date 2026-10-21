@@ -6,16 +6,35 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../domain/entities/driver_registration.dart';
 import '../../../domain/repositories/auth_repository.dart';
+import '../../../core/storage/auth_token_storage.dart';
+import '../../../data/services/google_auth_service.dart';
 
 class SignupController extends ChangeNotifier {
-  SignupController(this._authRepository, {FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage() {
+  SignupController(
+    this._authRepository, {
+    FlutterSecureStorage? storage,
+    GoogleAuthCredential? googleCredential,
+    GoogleAuthService? googleAuthService,
+  }) : _storage = storage ?? const FlutterSecureStorage(),
+       _googleCredential = googleCredential,
+       _googleAuthService = googleAuthService ?? GoogleAuthService() {
     _registerDraftListeners();
+    if (googleCredential != null) {
+      emailController.text = googleCredential.email;
+      if (googleCredential.firstName != null) {
+        firstNameController.text = googleCredential.firstName!;
+      }
+      if (googleCredential.lastName != null) {
+        lastNameController.text = googleCredential.lastName!;
+      }
+    }
     unawaited(_restoreDraft());
   }
 
   final AuthRepository _authRepository;
   final FlutterSecureStorage _storage;
+  final GoogleAuthCredential? _googleCredential;
+  final GoogleAuthService _googleAuthService;
   static const _draftKey = 'signup_registration_draft';
   Timer? _draftSaveTimer;
   bool _isRestoring = true;
@@ -237,6 +256,11 @@ class SignupController extends ChangeNotifier {
         _verifiedMobileNumber = mobileNumber;
       }
 
+      var socialIdToken = _googleCredential?.idToken;
+      if (_googleCredential != null) {
+        final refreshedCredential = await _googleAuthService.refreshCredential();
+        socialIdToken = refreshedCredential?.idToken ?? socialIdToken;
+      }
       final registration = DriverRegistration(
         firstName: firstNameController.text.trim(),
         lastName: lastNameController.text.trim(),
@@ -245,6 +269,8 @@ class SignupController extends ChangeNotifier {
         mobileNumber: _toApiMobile(mobileController.text),
         email: emailController.text.trim().toLowerCase(),
         password: passwordController.text,
+        authProvider: _googleCredential == null ? 'local' : 'google',
+        socialIdToken: socialIdToken,
         serviceProvider: _toApiServiceProvider(serviceProviderController.text),
         serviceId: _serviceIdForRegistration,
         licenseNumber: licenseNumberController.text.trim(),
@@ -264,7 +290,10 @@ class SignupController extends ChangeNotifier {
         ],
         dataSharingConsent: dataSharingConsent,
       );
-      await _authRepository.signup(registration);
+      final tokens = await _authRepository.signup(registration);
+      if (_googleCredential != null) {
+        await AuthTokenStorage().save(tokens, keepSignedIn: true);
+      }
       await clearDraft();
       return true;
     } finally {
@@ -272,6 +301,8 @@ class SignupController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  bool get isGoogleSignup => _googleCredential != null;
 
   String _toIsoDate(String value) {
     final parts = value.trim().split('/');

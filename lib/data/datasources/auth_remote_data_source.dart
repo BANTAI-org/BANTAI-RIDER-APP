@@ -19,6 +19,15 @@ class AuthRemoteDataSource {
     return AuthTokensModel.fromJson(response);
   }
 
+  Future<AuthTokensModel> loginWithGoogle({required String idToken}) async {
+    final response = await _apiClient.post(
+      NetworkSettings.googleSignInPath,
+      {'idToken': idToken},
+      authenticated: false,
+    );
+    return AuthTokensModel.fromJson(response);
+  }
+
   Future<void> otpSend({required String contactNumber}) async {
     await _apiClient.post(NetworkSettings.otpSendPath, {
       'm_number': contactNumber,
@@ -35,12 +44,13 @@ class AuthRemoteDataSource {
     }, authenticated: false);
   }
 
-  Future<void> signup(DriverRegistration registration) async {
-    await _apiClient.post(
+  Future<AuthTokensModel> signup(DriverRegistration registration) async {
+    final response = await _apiClient.post(
       NetworkSettings.driverRegistrationPath,
       registration.toJson(),
       authenticated: false,
     );
+    return AuthTokensModel.fromJson(response);
   }
 
   Future<int> otpForgotPasswordOtpSend({

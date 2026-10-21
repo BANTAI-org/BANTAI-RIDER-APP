@@ -7,6 +7,8 @@ class DriverRegistration {
     required this.mobileNumber,
     required this.email,
     required this.password,
+    this.authProvider = 'local',
+    this.socialIdToken,
     required this.serviceProvider,
     required this.serviceId,
     required this.licenseNumber,
@@ -28,6 +30,8 @@ class DriverRegistration {
   final String mobileNumber;
   final String email;
   final String password;
+  final String authProvider;
+  final String? socialIdToken;
   final String serviceProvider;
   final String? serviceId;
   final String licenseNumber;
@@ -48,8 +52,9 @@ class DriverRegistration {
     'address': address,
     'm_number': mobileNumber,
     'email': email,
-    'auth_provider': 'local',
-    'password': password,
+    'auth_provider': authProvider,
+    if (authProvider == 'local') 'password': password,
+    if (socialIdToken != null) 'social_id_token': socialIdToken,
     'service_provider': serviceProvider,
     if (serviceId != null && serviceId!.isNotEmpty) 'service_id': serviceId,
     'license_number': licenseNumber,

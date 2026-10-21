@@ -7,6 +7,8 @@ abstract interface class AuthRepository {
     required String password
   });
 
+  Future<AuthTokens> loginWithGoogle({required String idToken});
+
   Future<void> otpSend({
     required String contactNumber
   });
@@ -16,7 +18,7 @@ abstract interface class AuthRepository {
     required String otpCode,
   });
 
-  Future<void> signup(
+  Future<AuthTokens> signup(
     DriverRegistration registration
   );
 
