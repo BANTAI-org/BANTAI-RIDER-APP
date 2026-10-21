@@ -24,6 +24,13 @@ class NearbyRider {
     required this.isNeedHelp,
     this.latitude,
     this.longitude,
+    this.riderName,
+    this.platform,
+    this.respondersInfo,
+    this.riderInfo,
+    this.respondersSummary,
+    this.helpNeededText,
+    this.crashDetectionText,
   });
 
   final String id;
@@ -36,6 +43,15 @@ class NearbyRider {
   final double? latitude;
   final double? longitude;
 
+  // Additional fields required by target design
+  final String? riderName;
+  final String? platform;
+  final String? respondersInfo;
+  final String? riderInfo;
+  final String? respondersSummary;
+  final String? helpNeededText;
+  final String? crashDetectionText;
+
   NearbyRider copyWith({
     String? status,
     String? distance,
@@ -45,6 +61,13 @@ class NearbyRider {
     bool? isNeedHelp,
     double? latitude,
     double? longitude,
+    String? riderName,
+    String? platform,
+    String? respondersInfo,
+    String? riderInfo,
+    String? respondersSummary,
+    String? helpNeededText,
+    String? crashDetectionText,
   }) {
     return NearbyRider(
       id: id,
@@ -56,6 +79,13 @@ class NearbyRider {
       isNeedHelp: isNeedHelp ?? this.isNeedHelp,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      riderName: riderName ?? this.riderName,
+      platform: platform ?? this.platform,
+      respondersInfo: respondersInfo ?? this.respondersInfo,
+      riderInfo: riderInfo ?? this.riderInfo,
+      respondersSummary: respondersSummary ?? this.respondersSummary,
+      helpNeededText: helpNeededText ?? this.helpNeededText,
+      crashDetectionText: crashDetectionText ?? this.crashDetectionText,
     );
   }
 
@@ -81,6 +111,13 @@ class NearbyRider {
           json['needs_help'] == true || status.toLowerCase() == 'needs help',
       latitude: latitude,
       longitude: longitude,
+      riderName: json['rider_name']?.toString() ?? json['name']?.toString(),
+      platform: json['platform']?.toString(),
+      respondersInfo: json['responders_info']?.toString(),
+      riderInfo: json['rider_info']?.toString(),
+      respondersSummary: json['responders_summary']?.toString(),
+      helpNeededText: json['help_needed_text']?.toString(),
+      crashDetectionText: json['crash_detection_text']?.toString(),
     );
   }
 
@@ -129,6 +166,7 @@ class CommsController extends ChangeNotifier {
         markerId: const MarkerId('current-rider'),
         position: LatLng(_position!.latitude, _position!.longitude),
         infoWindow: const InfoWindow(title: 'You are here'),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       ),
     for (final rider in _riders.values)
       if (rider.latitude != null && rider.longitude != null)
@@ -136,6 +174,11 @@ class CommsController extends ChangeNotifier {
           markerId: MarkerId(rider.id),
           position: LatLng(rider.latitude!, rider.longitude!),
           infoWindow: InfoWindow(title: rider.id),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            rider.isCritical
+                ? BitmapDescriptor.hueRed
+                : BitmapDescriptor.hueOrange,
+          ),
         ),
   };
 
@@ -147,12 +190,73 @@ class CommsController extends ChangeNotifier {
         radius: 3000,
         fillColor: const Color(0x1434C759),
         strokeColor: const Color(0x9934C759),
-        strokeWidth: 1,
+        strokeWidth: 2,
       ),
   };
 
   Future<void> initialize() async {
+    _loadMockData(); // Pre-populate mock riders to match design preview
     await Future.wait([refreshLocation(), connect()]);
+  }
+
+  void _loadMockData() {
+    final mockRiders = [
+      const NearbyRider(
+        id: 'JOY-0871',
+        status: 'Critical',
+        distance: '900 m',
+        location: 'C5 Service Rd. cor. Kalayaan Ave.',
+        updatedAt: '2 min ago',
+        isCritical: true,
+        isNeedHelp: false,
+        latitude: 14.5580,
+        longitude: 121.0560,
+        riderName: 'Emman',
+        platform: 'JoyRide',
+        respondersSummary: '4 riders responding',
+        respondersInfo: 'MDRRMO Ambulance • ETA 3 min',
+        riderInfo: 'Plate NBH 8821 • Blood type B+',
+        crashDetectionText: 'Side impact · rider down, no movement for 40 s',
+        helpNeededText: 'Passenger conscious. Rider pinned under bike - needs 2 people to lift.',
+      ),
+      const NearbyRider(
+        id: 'ANG-1190',
+        status: 'Needs help',
+        distance: '1.7 km',
+        location: 'Shaw Blvd. near Kapitolyo flyover',
+        updatedAt: '6 min ago',
+        isCritical: false,
+        isNeedHelp: true,
+        latitude: 14.5720,
+        longitude: 121.0620,
+        riderName: 'Alex',
+        platform: 'Angkas',
+        respondersSummary: '2 riders responding',
+        respondersInfo: 'Nearby volunteers',
+        riderInfo: 'Plate XYZ 1234 • Blood type O+',
+        helpNeededText:
+            'Flat tire near flyover, needs portable pump or spare tube.',
+      ),
+      const NearbyRider(
+        id: 'MOV-3390',
+        status: '',
+        distance: '2.6 km',
+        location: 'Ortigas Ave. cor. Meralco Ave.',
+        updatedAt: '14 min ago',
+        isCritical: false,
+        isNeedHelp: false,
+        latitude: 14.5880,
+        longitude: 121.0680,
+        riderName: 'Mark',
+        platform: 'MoveIt',
+        respondersSummary: '1 rider responding',
+      ),
+    ];
+
+    for (final rider in mockRiders) {
+      _riders[rider.id] = rider;
+    }
+    notifyListeners();
   }
 
   void selectMode(CommsMode mode) {
@@ -188,6 +292,7 @@ class CommsController extends ChangeNotifier {
           .disableAutoConnect()
           .setAuth({'token': token})
           .build();
+
       final gpsSocket = io.io(
         '${NetworkSettings.commsSocketBaseUrl}/gps',
         options,
@@ -196,6 +301,7 @@ class CommsController extends ChangeNotifier {
         '${NetworkSettings.commsSocketBaseUrl}/incidents',
         options,
       );
+
       if (_disposed) {
         gpsSocket.dispose();
         incidentsSocket.dispose();
@@ -207,13 +313,16 @@ class CommsController extends ChangeNotifier {
       gpsSocket.on('connect', (_) => _handleSocketConnected());
       incidentsSocket.on('connect', (_) => _handleSocketConnected());
       gpsSocket.on('gps-update', _handleSocketMessage);
+
       for (final event in _incidentEvents) {
         incidentsSocket.on(event, _handleSocketMessage);
       }
+
       gpsSocket.on('connect_error', _handleSocketError);
       incidentsSocket.on('connect_error', _handleSocketError);
       gpsSocket.on('disconnect', _handleSocketClosed);
       incidentsSocket.on('disconnect', _handleSocketClosed);
+
       gpsSocket.connect();
       incidentsSocket.connect();
     } on CommsConnectionException catch (error) {
@@ -306,6 +415,13 @@ class CommsController extends ChangeNotifier {
             isNeedHelp: rider.isNeedHelp,
             latitude: rider.latitude,
             longitude: rider.longitude,
+            riderName: rider.riderName,
+            platform: rider.platform,
+            respondersInfo: rider.respondersInfo,
+            riderInfo: rider.riderInfo,
+            respondersSummary: rider.respondersSummary,
+            helpNeededText: rider.helpNeededText,
+            crashDetectionText: rider.crashDetectionText,
           ),
           ifAbsent: () => rider,
         );
@@ -323,14 +439,17 @@ class CommsController extends ChangeNotifier {
   }
 
   void _handleSocketError(dynamic error) {
-    _handleConnectionFailure(error?.toString() ?? 'Socket.IO connection failed.');
+    _handleConnectionFailure(
+      error?.toString() ?? 'Socket.IO connection failed.',
+    );
   }
 
   void _handleSocketClosed(dynamic _) {
     _gpsSocket = null;
     _incidentsSocket = null;
-    if (!_disposed)
+    if (!_disposed) {
       _handleConnectionFailure('The Comms connection was closed.');
+    }
   }
 
   void _handleConnectionFailure(String message) {
