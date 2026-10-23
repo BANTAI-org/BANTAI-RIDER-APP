@@ -128,7 +128,7 @@ class _MapCardState extends State<_MapCard> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(11),
       child: SizedBox(
-        height: 184,
+        height: 240,
         child: Stack(
           children: [
             GoogleMap(
@@ -140,8 +140,10 @@ class _MapCardState extends State<_MapCard> {
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               compassEnabled: false,
+              mapToolbarEnabled: false,
               circles: widget.controller.coverageCircles,
               markers: widget.controller.riderMarkers,
+              padding: const EdgeInsets.only(bottom: 40),
               onMapCreated: (mapController) {
                 _mapController = mapController;
                 if (_mapStyle != null) {
