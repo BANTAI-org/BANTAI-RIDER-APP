@@ -151,11 +151,12 @@ class _MapCardState extends State<_MapCard> {
               },
             ),
             Positioned(
-              right: 7,
-              top: 8,
+              right: 12,
+              top: 12,
               child: Column(
                 children: [
                   _MapControl(icon: Icons.add, onPressed: () => _changeZoom(1)),
+                  const SizedBox(height: 8),
                   _MapControl(
                     icon: Icons.remove,
                     onPressed: () => _changeZoom(-1),
@@ -164,21 +165,47 @@ class _MapCardState extends State<_MapCard> {
               ),
             ),
             Positioned(
-              right: 8,
-              bottom: 9,
-              child: FloatingActionButton.small(
-                heroTag: 'comms-location',
-                elevation: 2,
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFFE6001A),
-                onPressed: widget.controller.refreshLocation,
-                child: widget.controller.isLoadingLocation
-                    ? const SizedBox(
-                        width: 15,
-                        height: 15,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.my_location, size: 17),
+              right: 12,
+              bottom: 12,
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: widget.controller.refreshLocation,
+                    child: Center(
+                      child: widget.controller.isLoadingLocation
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  const Color(0xFFE6001A),
+                                ),
+                              ),
+                            )
+                          : const Icon(
+                              Icons.my_location,
+                              size: 18,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -200,11 +227,33 @@ class _MapControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      child: InkWell(
-        onTap: onPressed,
-        child: SizedBox(width: 30, height: 29, child: Icon(icon, size: 18)),
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onPressed,
+          child: Center(
+            child: Icon(
+              icon,
+              size: 20,
+              color: const Color(0xFF1A1A1A),
+            ),
+          ),
+        ),
       ),
     );
   }

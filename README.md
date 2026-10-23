@@ -66,8 +66,11 @@ The API URL and timeout are read from `.env`; endpoint paths remain code constan
 
 The configured endpoints are:
 
+- Health: `GET /health`
+- Send OTP: `POST /sms/otp/send`
+- Verify OTP: `POST /sms/otp/verify`
 - Login: `POST /auth/local/signin`
-- Signup: `POST /auth/local/signup`
+- Signup: `POST /drivers/register`
 - Refresh: `POST /auth/refresh`
 
 The existing NestJS server currently exposes login and refresh. Its `ManualSignupDto` exists, but the signup controller route and service flow still need to be added before the app's signup action can succeed.

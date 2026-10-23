@@ -13,44 +13,67 @@ class ApiClient {
   final http.Client _client;
   final AuthTokenStorage _tokenStorage;
 
+  Future<Map<String, dynamic>> get(
+    String path, {
+    bool authenticated = true,
+  }) async {
+    final response = await _client
+        .get(
+          Uri.parse('${NetworkSettings.baseUrl}$path'),
+          headers: await _headers(authenticated),
+        )
+        .timeout(NetworkSettings.requestTimeout);
+
+    return _decodeResponse(response);
+  }
+
   Future<Map<String, dynamic>> post(
     String path,
-    Map<String, dynamic> body,
-  {bool authenticated = true}) async {
-    final headers = await _headers(authenticated);
+    Map<String, dynamic> body, {
+    bool authenticated = true,
+  }) async {
     final response = await _client
         .post(
           Uri.parse('${NetworkSettings.baseUrl}$path'),
-          headers: headers,
+          headers: await _headers(authenticated),
           body: jsonEncode(body),
         )
         .timeout(NetworkSettings.requestTimeout);
 
-    final decoded = response.body.isEmpty
-        ? <String, dynamic>{}
-        : jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(
-        response.statusCode,
-        decoded['message']?.toString() ?? 'The request failed.',
-      );
-    }
-    return decoded;
+    return _decodeResponse(response);
   }
 
   Future<Map<String, dynamic>> put(
     String path,
-    Map<String, dynamic> body,
-  {bool authenticated = true}) async {
-    final headers = await _headers(authenticated);
+    Map<String, dynamic> body, {
+    bool authenticated = true,
+  }) async {
     final response = await _client
         .put(
           Uri.parse('${NetworkSettings.baseUrl}$path'),
-          headers: headers,
+          headers: await _headers(authenticated),
           body: jsonEncode(body),
         )
         .timeout(NetworkSettings.requestTimeout);
 
+    return _decodeResponse(response);
+  }
+
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    bool authenticated = true,
+  }) async {
+    final response = await _client
+        .delete(
+          Uri.parse('${NetworkSettings.baseUrl}$path'),
+          headers: await _headers(authenticated),
+        )
+        .timeout(NetworkSettings.requestTimeout);
+
+    return _decodeResponse(response);
+  }
+
+  Map<String, dynamic> _decodeResponse(http.Response response) {
     final decoded = response.body.isEmpty
         ? <String, dynamic>{}
         : jsonDecode(response.body) as Map<String, dynamic>;

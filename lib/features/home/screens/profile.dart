@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/network/api_client.dart';
+import '../../../data/datasources/profile_remote_data_source.dart';
+import '../../../data/repositories/profile_repository_impl.dart';
 import '../controllers/profile_controller.dart';
 import '../widgets/profile_widgets.dart';
+import '../widgets/sos_broadcast_widget.dart';
+import '../widgets/rider_details_widget.dart';
+import '../widgets/emergency_contacts_widget.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.controller});
@@ -19,9 +25,16 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller ?? ProfileController();
+    _controller = widget.controller ?? _createDefaultController();
     _ownsController = widget.controller == null;
     _controller.addListener(_refresh);
+  }
+
+  ProfileController _createDefaultController() {
+    final apiClient = ApiClient();
+    final dataSource = ProfileRemoteDataSource(apiClient);
+    final repository = ProfileRepositoryImpl(dataSource);
+    return ProfileController(repository);
   }
 
   @override
@@ -62,19 +75,34 @@ class _ProfilePageState extends State<ProfilePage> {
                         icon: Icons.campaign_outlined,
                         title: 'SOS broadcast',
                         subtitle: 'What responders hear first',
-                        onTap: () {},
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                SosBroadcastPage(controller: _controller),
+                          ),
+                        ),
                       ),
                       ProfileInfoTile(
                         icon: Icons.person_outline,
                         title: 'Rider details',
                         subtitle: _controller.vehicleDetails,
-                        onTap: () {},
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                RiderDetailsPage(controller: _controller),
+                          ),
+                        ),
                       ),
                       ProfileInfoTile(
                         icon: Icons.phone_outlined,
                         title: 'Emergency contacts',
                         subtitle: _controller.emergencyContact,
-                        onTap: () {},
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                EmergencyContactsPage(controller: _controller),
+                          ),
+                        ),
                       ),
                     ],
                   ),

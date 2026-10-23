@@ -29,6 +29,7 @@ class NetworkSettings {
   }
 
   static const String signInPath = '/auth/local/signin';
+  static const String healthPath = '/health';
   static const String googleSignInPath = '/auth/google';
   static const String driverRegistrationPath = '/drivers/register';
   static const String refreshPath = '/auth/refresh';
@@ -40,6 +41,11 @@ class NetworkSettings {
       '/drivers/forgot-password/verify';
   static const String forgotPasswordResetPath =
       '/drivers/forgot-password/reset';
+  
+  // Profile endpoints
+  static const String profilePath = '/profile';
+  static const String sosBroadcastPath = '/profile/sos-broadcast';
+  static const String emergencyContactsPath = '/profile/emergency-contacts';
 
   static String _required(String key) {
     final value = dotenv.env[key]?.trim();
