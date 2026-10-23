@@ -3,9 +3,26 @@ import 'dart:async';
 import 'package:camera/camera.dart' as camera;
 import 'package:flutter/foundation.dart';
 
+import '../../../data/services/provisioning_service.dart';
+
 enum ScanMode { camera, pairDevice }
 
+enum ProvisioningStep {
+  idle,
+  scanningQr,
+  connectingBle,
+  authenticating,
+  sendingCredentials,
+  completed,
+  error,
+}
+
 class ScanController extends ChangeNotifier {
+  ScanController({ProvisioningService? provisioningService})
+    : _provisioningService = provisioningService ?? ProvisioningService();
+
+  final ProvisioningService _provisioningService;
+
   ScanMode _mode = ScanMode.camera;
   bool _isDownloading = false;
   bool _isPaired = true;
@@ -15,6 +32,11 @@ class ScanController extends ChangeNotifier {
   bool _isCameraLoading = false;
   String? _cameraError;
   camera.CameraController? _cameraController;
+
+  ProvisioningStep _provisioningStep = ProvisioningStep.idle;
+  PiIdentity? _scannedPiIdentity;
+  String? _setupToken;
+  HotspotCredentials? _hotspotCredentials;
 
   ScanMode get mode => _mode;
   bool get isDownloading => _isDownloading;
@@ -26,8 +48,13 @@ class ScanController extends ChangeNotifier {
   String? get cameraError => _cameraError;
   camera.CameraController? get cameraController => _cameraController;
 
-  String get deviceName => 'Pi 5 Connection';
-  String get deviceIdentifier => 'BANTAI-PI-4471';
+  ProvisioningStep get provisioningStep => _provisioningStep;
+  PiIdentity? get scannedPiIdentity => _scannedPiIdentity;
+  String? get setupToken => _setupToken;
+  HotspotCredentials? get hotspotCredentials => _hotspotCredentials;
+
+  String get deviceName => _scannedPiIdentity?.deviceId ?? 'Pi 5 Connection';
+  String get deviceIdentifier => _scannedPiIdentity?.deviceId ?? 'BANTAI-PI-4471';
   String get firmwareVersion => 'Firmware 2.4.1';
 
   void selectMode(ScanMode mode) {
@@ -112,17 +139,96 @@ class ScanController extends ChangeNotifier {
     _isPairing = true;
     _pairingError = null;
     _lastScannedCode = code.trim();
+    _provisioningStep = ProvisioningStep.scanningQr;
     notifyListeners();
+
     try {
-      // TODO(backend): Validate the QR payload and pair the Pi 5 device.
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-      _isPaired = true;
+      // Try to parse as Pi identity QR code
+      final identity = await _provisioningService.parseQrCode(code.trim());
+      
+      if (identity != null) {
+        _scannedPiIdentity = identity;
+        _provisioningStep = ProvisioningStep.connectingBle;
+        notifyListeners();
+        
+        // The caller should now prompt for setup token and hotspot credentials
+        // The actual BLE connection will be initiated via startProvisioning()
+      } else {
+        // Legacy pairing flow
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        _isPaired = true;
+        _provisioningStep = ProvisioningStep.idle;
+      }
     } catch (error) {
       _pairingError = 'Unable to pair this device: $error';
+      _provisioningStep = ProvisioningStep.error;
     } finally {
       _isPairing = false;
       notifyListeners();
     }
+  }
+
+  void setSetupToken(String token) {
+    _setupToken = token;
+    notifyListeners();
+  }
+
+  void setHotspotCredentials(String ssid, String password) {
+    _hotspotCredentials = HotspotCredentials(ssid: ssid, password: password);
+    notifyListeners();
+  }
+
+  Future<bool> startProvisioning() async {
+    if (_scannedPiIdentity == null || _setupToken == null || _hotspotCredentials == null) {
+      _pairingError = 'Missing provisioning information';
+      _provisioningStep = ProvisioningStep.error;
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      _provisioningStep = ProvisioningStep.authenticating;
+      notifyListeners();
+
+      // Generate client hello for BLE handshake
+      await _provisioningService.generateClientHello();
+      
+      // TODO: Send clientHello via BLE to the Pi and receive server response
+      // For now, simulate the flow
+      await Future<void>.delayed(const Duration(seconds: 1));
+
+      _provisioningStep = ProvisioningStep.sendingCredentials;
+      notifyListeners();
+
+      // Send hotspot credentials after successful authentication
+      final success = await _provisioningService.sendHotspotCredentials(_hotspotCredentials!);
+
+      if (success) {
+        _provisioningStep = ProvisioningStep.completed;
+        _isPaired = true;
+        notifyListeners();
+        return true;
+      } else {
+        _pairingError = 'Failed to send hotspot credentials';
+        _provisioningStep = ProvisioningStep.error;
+        notifyListeners();
+        return false;
+      }
+    } catch (error) {
+      _pairingError = 'Provisioning failed: $error';
+      _provisioningStep = ProvisioningStep.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void resetProvisioning() {
+    _provisioningStep = ProvisioningStep.idle;
+    _scannedPiIdentity = null;
+    _setupToken = null;
+    _hotspotCredentials = null;
+    _pairingError = null;
+    notifyListeners();
   }
 
   void unpairDevice() {

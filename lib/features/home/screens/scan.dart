@@ -87,6 +87,7 @@ class _ScanPageState extends State<ScanPage> with WidgetsBindingObserver {
                     const ScanStatusWidget(),
                   ] else
                     ScanPairWidget(
+                      controller: _controller,
                       isPairing: _controller.isPairing,
                       pairingError: _controller.pairingError,
                       onQrDetected: _controller.pairFromQr,
