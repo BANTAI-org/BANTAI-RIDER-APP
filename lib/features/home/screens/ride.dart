@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../controllers/ride_controller.dart';
 import '../widgets/live_sos_widget.dart';
 import '../widgets/live_telemetry_widget.dart';
@@ -63,9 +64,7 @@ class _RidePageState extends State<RidePage> {
                     const SizedBox(height: 14),
                     RideSessionWidget(
                       controller: _controller,
-                      onTap: _controller.isSessionLive
-                          ? _controller.endSession
-                          : _controller.startSession,
+                      onTap: _controller.endSession,
                     ),
                     const SizedBox(height: 21),
                     LiveTelemetryWidget(

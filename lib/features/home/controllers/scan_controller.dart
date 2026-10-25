@@ -147,22 +147,25 @@ class ScanController extends ChangeNotifier {
       final identity = await _provisioningService.parseQrCode(code.trim());
       
       if (identity != null) {
+        debugPrint('[BANTAI] Parsed Pi identity: ${identity.deviceId}');
         _scannedPiIdentity = identity;
         _provisioningStep = ProvisioningStep.connectingBle;
+        _isPairing = false;
         notifyListeners();
-        
-        // The caller should now prompt for setup token and hotspot credentials
-        // The actual BLE connection will be initiated via startProvisioning()
+        // Dialog will be shown by _onProvisioningChange listener
       } else {
+        debugPrint('[BANTAI] QR code is not a Pi identity, trying legacy flow');
         // Legacy pairing flow
         await Future<void>.delayed(const Duration(milliseconds: 350));
         _isPaired = true;
         _provisioningStep = ProvisioningStep.idle;
+        _isPairing = false;
+        notifyListeners();
       }
     } catch (error) {
+      debugPrint('[BANTAI] QR parsing error: $error');
       _pairingError = 'Unable to pair this device: $error';
       _provisioningStep = ProvisioningStep.error;
-    } finally {
       _isPairing = false;
       notifyListeners();
     }
@@ -187,20 +190,29 @@ class ScanController extends ChangeNotifier {
     }
 
     try {
+      // Step 1: Connect to Pi via BLE
+      _provisioningStep = ProvisioningStep.connectingBle;
+      notifyListeners();
+      
+      await _provisioningService.connectToPi();
+
+      // Step 2: Perform cryptographic handshake with setup token
       _provisioningStep = ProvisioningStep.authenticating;
       notifyListeners();
 
-      // Generate client hello for BLE handshake
-      await _provisioningService.generateClientHello();
+      final handshakeSuccess = await _provisioningService.performHandshake(_setupToken!);
       
-      // TODO: Send clientHello via BLE to the Pi and receive server response
-      // For now, simulate the flow
-      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!handshakeSuccess) {
+        _pairingError = 'Authentication failed. Check your setup token.';
+        _provisioningStep = ProvisioningStep.error;
+        notifyListeners();
+        return false;
+      }
 
+      // Step 3: Send hotspot credentials
       _provisioningStep = ProvisioningStep.sendingCredentials;
       notifyListeners();
 
-      // Send hotspot credentials after successful authentication
       final success = await _provisioningService.sendHotspotCredentials(_hotspotCredentials!);
 
       if (success) {

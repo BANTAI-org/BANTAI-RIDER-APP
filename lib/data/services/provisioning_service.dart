@@ -1,7 +1,10 @@
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart';
+
+import 'ble_provisioning_client.dart';
 
 class PiIdentity {
   const PiIdentity({
@@ -29,27 +32,21 @@ class PiIdentity {
   final String keyFingerprint;
 
   Map<String, dynamic> toJson() => {
-        'version': version,
-        'device_id': deviceId,
-        'ble_service_uuid': bleServiceUuid,
-        'public_key': publicKey,
-        'key_fingerprint': keyFingerprint,
-      };
+    'version': version,
+    'device_id': deviceId,
+    'ble_service_uuid': bleServiceUuid,
+    'public_key': publicKey,
+    'key_fingerprint': keyFingerprint,
+  };
 }
 
 class HotspotCredentials {
-  const HotspotCredentials({
-    required this.ssid,
-    required this.password,
-  });
+  const HotspotCredentials({required this.ssid, required this.password});
 
   final String ssid;
   final String password;
 
-  Map<String, dynamic> toJson() => {
-        'ssid': ssid,
-        'password': password,
-      };
+  Map<String, dynamic> toJson() => {'ssid': ssid, 'password': password};
 }
 
 class ProvisioningState {
@@ -87,15 +84,26 @@ enum ProvisioningStatus {
 }
 
 class ProvisioningService {
+  static final Uint8List _protocolPrefix = Uint8List.fromList([
+    ...utf8.encode('BANTAI-PROVISION-v1'),
+    0,
+  ]);
+  static const String _hkdfInfo = 'BANTAI BLE provisioning session v1';
+
   final _x25519 = X25519();
+  final _ed25519 = Ed25519();
   final _aesGcm = AesGcm.with256bits();
+  final _rng = Random.secure();
+  final BleProvisioningClient _bleClient = BleProvisioningClient();
 
   SimpleKeyPair? _clientKeyPair;
+  Uint8List? _clientNonce;
   SecretKey? _sessionKey;
   Uint8List? _transcriptHash;
   PiIdentity? _piIdentity;
 
   PiIdentity? get piIdentity => _piIdentity;
+  BleProvisioningClient get bleClient => _bleClient;
 
   Future<PiIdentity?> parseQrCode(String qrData) async {
     try {
@@ -103,155 +111,260 @@ class ProvisioningService {
       final identity = PiIdentity.fromJson(json);
 
       if (identity.version != 1) {
-        throw FormatException('Unsupported identity version: ${identity.version}');
+        throw FormatException(
+          'Unsupported identity version: ${identity.version}',
+        );
       }
-
       if (!identity.deviceId.startsWith('BANTAI-')) {
-        throw FormatException('Invalid device ID format');
+        throw const FormatException('Invalid device ID format');
       }
 
       _piIdentity = identity;
       return identity;
     } catch (e) {
+      debugPrint('[BANTAI] QR parse failed: $e');
       return null;
     }
   }
 
-  Future<String> generateClientHello() async {
-    if (_piIdentity == null) {
-      throw StateError('No Pi identity available');
+  /// Throws on failure (scan timeout, connect error, missing characteristic).
+  Future<void> connectToPi() async {
+    final identity = _piIdentity;
+    if (identity == null) throw StateError('No Pi identity available');
+    await _bleClient.connect(
+      expectedName: identity.deviceId,
+    );
+  }
+
+  Future<bool> performHandshake(String setupToken) async {
+    if (_piIdentity == null || !_bleClient.isConnected) return false;
+
+    try {
+      final hello = await generateClientHello();
+      final serverResponse = await _bleClient.sendMessage(
+        jsonDecode(hello) as Map<String, dynamic>,
+      );
+
+      if (serverResponse['type'] != 'server_hello') {
+        debugPrint('[BANTAI] Unexpected reply: $serverResponse');
+        return false;
+      }
+      return await processServerHello(jsonEncode(serverResponse), setupToken);
+    } catch (e) {
+      debugPrint('[BANTAI] Handshake error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> sendHotspotCredentials(HotspotCredentials credentials) async {
+    final hash = _transcriptHash;
+    if (_sessionKey == null || hash == null || !_bleClient.isConnected) {
+      return false;
     }
 
+    try {
+      final envelope = await _encrypt(
+        {'type': 'hotspot_credentials', ...credentials.toJson()},
+        aad: [...hash, ...utf8.encode('client-to-server')],
+        type: 'encrypted',
+      );
+
+      // The Pi may spend up to ~40s in nmcli, so wait longer than usual.
+      final reply = await _bleClient.sendMessage(
+        envelope,
+        timeout: const Duration(seconds: 60),
+      );
+
+      final payload = await _decryptServerMessage(reply);
+      if (payload['type'] == 'hotspot_response') {
+        return payload['success'] as bool? ?? false;
+      }
+      debugPrint('[BANTAI] Unexpected payload: $payload');
+      return false;
+    } catch (e) {
+      debugPrint('[BANTAI] Send credentials error: $e');
+      return false;
+    }
+  }
+
+  Future<void> disconnect() => _bleClient.disconnect();
+
+  Future<String> generateClientHello() async {
+    if (_piIdentity == null) throw StateError('No Pi identity available');
+
+    _sessionKey = null;
+    _transcriptHash = null;
+
     _clientKeyPair = await _x25519.newKeyPair();
-    final clientNonce = _generateNonce(32);
+    _clientNonce = _randomBytes(32);
 
     final clientPublic = await _clientKeyPair!.extractPublicKey();
-    final clientPublicBytes = Uint8List.fromList(clientPublic.bytes);
 
     final hello = {
       'type': 'client_hello',
-      'client_ephemeral': _encodeBase64(clientPublicBytes),
-      'client_nonce': _encodeBase64(clientNonce),
+      'client_ephemeral': _encodeBase64(Uint8List.fromList(clientPublic.bytes)),
+      'client_nonce': _encodeBase64(_clientNonce!),
     };
-
     return utf8.decode(_canonicalJson(hello));
   }
 
-  Future<bool> processServerHello(String serverResponse, String setupToken) async {
+  Future<bool> processServerHello(
+    String serverResponse,
+    String setupToken,
+  ) async {
     try {
-      final response = jsonDecode(serverResponse) as Map<String, dynamic>;
-
-      if (response['type'] != 'server_hello') {
+      final identity = _piIdentity;
+      final keyPair = _clientKeyPair;
+      final clientNonce = _clientNonce;
+      if (identity == null || keyPair == null || clientNonce == null) {
         return false;
       }
 
-      final serverEphemeral = _decodeBase64(response['server_ephemeral'] as String);
-      final transcriptHash = _decodeBase64(response['transcript_hash'] as String);
+      final response = jsonDecode(serverResponse) as Map<String, dynamic>;
+      if (response['type'] != 'server_hello') return false;
 
-      _transcriptHash = transcriptHash;
+      final serverEphemeral = _decodeBase64(
+        response['server_ephemeral'] as String,
+      );
+      final serverNonce = _decodeBase64(response['server_nonce'] as String);
+      final signature = _decodeBase64(response['signature'] as String);
+      final identityPublic = _decodeBase64(identity.publicKey);
 
-      final clientPublic = await _clientKeyPair!.extractPublicKey();
-      final clientPublicBytes = Uint8List.fromList(clientPublic.bytes);
+      if (serverEphemeral.length != 32 ||
+          serverNonce.length != 32 ||
+          identityPublic.length != 32) {
+        debugPrint('[BANTAI] Bad key/nonce length in server hello');
+        return false;
+      }
 
+      final clientPublic = await keyPair.extractPublicKey();
+
+      // Rebuild the transcript locally. Never trust the server's hash.
       final transcript = _canonicalJson({
         'version': 1,
-        'device_id': _piIdentity!.deviceId,
-        'identity_public': _piIdentity!.publicKey,
-        'client_ephemeral': _encodeBase64(clientPublicBytes),
-        'client_nonce': _encodeBase64(_lastClientNonce!),
-        'server_ephemeral': response['server_ephemeral'],
-        'server_nonce': response['server_nonce'],
+        'device_id': identity.deviceId,
+        'identity_public': _encodeBase64(identityPublic),
+        'client_ephemeral': _encodeBase64(
+          Uint8List.fromList(clientPublic.bytes),
+        ),
+        'client_nonce': _encodeBase64(clientNonce),
+        'server_ephemeral': _encodeBase64(serverEphemeral),
+        'server_nonce': _encodeBase64(serverNonce),
       });
 
-      final serverPublicKey = SimplePublicKey(
-        serverEphemeral,
-        type: KeyPairType.x25519,
+      // Authenticate the Pi: signature must verify against the QR's key.
+      final valid = await _ed25519.verify(
+        [..._protocolPrefix, ...transcript],
+        signature: Signature(
+          signature,
+          publicKey: SimplePublicKey(identityPublic, type: KeyPairType.ed25519),
+        ),
       );
-      final sharedSecret = await _x25519.sharedSecretKey(
-        keyPair: _clientKeyPair!,
-        remotePublicKey: serverPublicKey,
+      if (!valid) {
+        debugPrint('[BANTAI] Server signature INVALID, aborting');
+        return false;
+      }
+
+      final transcriptHash = Uint8List.fromList(
+        (await Sha256().hash(transcript)).bytes,
       );
 
-      _sessionKey = await _deriveSessionKey(sharedSecret, transcript);
+      final sharedSecret = await _x25519.sharedSecretKey(
+        keyPair: keyPair,
+        remotePublicKey: SimplePublicKey(
+          serverEphemeral,
+          type: KeyPairType.x25519,
+        ),
+      );
+
+      _sessionKey = await Hkdf(hmac: Hmac(Sha256()), outputLength: 32)
+          .deriveKey(
+            secretKey: sharedSecret,
+            nonce: transcriptHash,
+            info: utf8.encode(_hkdfInfo),
+          );
+      _transcriptHash = transcriptHash;
 
       return await _sendAuthorization(setupToken);
     } catch (e) {
+      debugPrint('[BANTAI] processServerHello error: $e');
       return false;
     }
   }
 
   Future<bool> _sendAuthorization(String setupToken) async {
-    if (_sessionKey == null || _transcriptHash == null) {
-      return false;
-    }
-
-    final nonce = _generateNonce(12);
-    final payload = jsonEncode({'setup_token': setupToken});
-
-    await _aesGcm.encrypt(
-      utf8.encode(payload),
-      secretKey: _sessionKey!,
-      nonce: nonce,
-      aad: _transcriptHash!.toList(),
-    );
-
-    return true;
-  }
-
-  Future<bool> sendHotspotCredentials(HotspotCredentials credentials) async {
-    if (_sessionKey == null || _transcriptHash == null) {
+    final hash = _transcriptHash;
+    if (_sessionKey == null || hash == null || !_bleClient.isConnected) {
       return false;
     }
 
     try {
-      final nonce = _generateNonce(12);
-      final payload = jsonEncode({
-        'type': 'hotspot_credentials',
-        ...credentials.toJson(),
-      });
-
-      final aad = [..._transcriptHash!, ...utf8.encode('client-to-server')];
-
-      await _aesGcm.encrypt(
-        utf8.encode(payload),
-        secretKey: _sessionKey!,
-        nonce: nonce,
-        aad: aad,
+      final envelope = await _encrypt(
+        {'setup_token': setupToken},
+        aad: hash,
+        type: 'authorize',
       );
-
-      return true;
+      final response = await _bleClient.sendMessage(envelope);
+      return response['type'] == 'authorization_success';
     } catch (e) {
+      debugPrint('[BANTAI] Authorization error: $e');
       return false;
     }
   }
 
-  Future<SecretKey> _deriveSessionKey(
-    SecretKey sharedSecret,
-    Uint8List transcript,
-  ) async {
-    final transcriptHash = Uint8List.fromList(await _sha256(transcript));
-    final hkdf = Hkdf(hmac: Hmac(Sha256()), outputLength: 32);
-    return await hkdf.deriveKey(
-      secretKey: sharedSecret,
-      nonce: transcriptHash,
-      info: Uint8List.fromList(utf8.encode('BANTAI BLE provisioning session v1')),
+  Future<Map<String, dynamic>> _encrypt(
+    Map<String, dynamic> payload, {
+    required List<int> aad,
+    required String type,
+  }) async {
+    final nonce = _randomBytes(12);
+    final box = await _aesGcm.encrypt(
+      utf8.encode(jsonEncode(payload)),
+      secretKey: _sessionKey!,
+      nonce: nonce,
+      aad: aad,
     );
+    return {
+      'type': type,
+      'nonce': _encodeBase64(nonce),
+      'ciphertext': _encodeBase64(
+        Uint8List.fromList([...box.cipherText, ...box.mac.bytes]),
+      ),
+    };
   }
 
-  Uint8List? _lastClientNonce;
-
-  Uint8List _generateNonce(int length) {
-    final nonce = Uint8List(length);
-    for (var i = 0; i < length; i++) {
-      nonce[i] = DateTime.now().microsecondsSinceEpoch % 256;
+  Future<Map<String, dynamic>> _decryptServerMessage(
+    Map<String, dynamic> envelope,
+  ) async {
+    if (envelope['type'] != 'encrypted') {
+      throw FormatException(
+        'Unexpected reply: ${envelope['type']} ${envelope['error'] ?? ''}',
+      );
     }
-    _lastClientNonce = nonce;
-    return nonce;
+    final nonce = _decodeBase64(envelope['nonce'] as String);
+    final data = _decodeBase64(envelope['ciphertext'] as String);
+    if (nonce.length != 12 || data.length < 16) {
+      throw const FormatException('Malformed encrypted reply');
+    }
+
+    final box = SecretBox(
+      data.sublist(0, data.length - 16),
+      nonce: nonce,
+      mac: Mac(data.sublist(data.length - 16)),
+    );
+    final clear = await _aesGcm.decrypt(
+      box,
+      secretKey: _sessionKey!,
+      aad: [..._transcriptHash!, ...utf8.encode('server-to-client')],
+    );
+    return jsonDecode(utf8.decode(clear)) as Map<String, dynamic>;
   }
 
-  String _encodeBase64(Uint8List data) {
-    return base64Url.encode(data).replaceAll('=', '');
-  }
+  Uint8List _randomBytes(int length) =>
+      Uint8List.fromList(List<int>.generate(length, (_) => _rng.nextInt(256)));
+
+  String _encodeBase64(Uint8List data) =>
+      base64Url.encode(data).replaceAll('=', '');
 
   Uint8List _decodeBase64(String data) {
     var normalized = data;
@@ -266,11 +379,5 @@ class ProvisioningService {
       data.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
     );
     return Uint8List.fromList(utf8.encode(jsonEncode(sorted)));
-  }
-
-  Future<List<int>> _sha256(Uint8List data) async {
-    final sha256 = Sha256();
-    final hash = await sha256.hash(data);
-    return hash.bytes;
   }
 }

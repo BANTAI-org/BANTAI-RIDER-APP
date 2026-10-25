@@ -115,11 +115,14 @@ class _QrScannerFrameState extends State<_QrScannerFrame> {
   void _onProvisioningChange() {
     final step = widget.controller.provisioningStep;
     final identity = widget.controller.scannedPiIdentity;
+    
+    debugPrint('[BANTAI] _onProvisioningChange: step=$step, identity=$identity, _dialogShown=$_dialogShown');
 
     if (identity != null &&
         step == ProvisioningStep.connectingBle &&
         !_dialogShown &&
         mounted) {
+      debugPrint('[BANTAI] Showing provisioning dialog');
       _dialogShown = true;
       _scannerController.stop();
       showProvisioningDialog(

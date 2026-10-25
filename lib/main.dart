@@ -8,11 +8,13 @@ import 'core/theme/app_theme.dart';
 import 'data/datasources/auth_remote_data_source.dart';
 import 'data/repositories/auth_repository_impl.dart';
 import 'features/auth/screens/auth_gate.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
   await _requestStartupPermissions();
+  await ensureBlePermissions();
 
   final authRepository = AuthRepositoryImpl(AuthRemoteDataSource(ApiClient()));
   runApp(BantaiResponderApp(authRepository: authRepository));
@@ -54,6 +56,19 @@ Future<void> _requestStartupPermissions() async {
   }
 }
 
+Future<bool> ensureBlePermissions() async {
+  final statuses = await [
+    Permission.bluetoothScan,
+    Permission.bluetoothConnect,
+  ].request();
+
+  final granted = statuses.values.every((s) => s.isGranted);
+  if (!granted) {
+    debugPrint('Bluetooth permission was not granted: $statuses');
+  }
+  return granted;
+}
+
 class BantaiResponderApp extends StatelessWidget {
   const BantaiResponderApp({super.key, required this.authRepository});
 
@@ -64,6 +79,7 @@ class BantaiResponderApp extends StatelessWidget {
     return MaterialApp(
       title: 'BANTAI Rider App',
       theme: AppTheme.light,
+      debugShowCheckedModeBanner: false,
       home: AuthGate(authRepository: authRepository),
     );
   }
