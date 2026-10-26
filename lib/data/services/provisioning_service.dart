@@ -13,6 +13,7 @@ class PiIdentity {
     required this.bleServiceUuid,
     required this.publicKey,
     required this.keyFingerprint,
+    required this.setupToken,
   });
 
   factory PiIdentity.fromJson(Map<String, dynamic> json) {
@@ -22,6 +23,7 @@ class PiIdentity {
       bleServiceUuid: json['ble_service_uuid'] as String,
       publicKey: json['public_key'] as String,
       keyFingerprint: json['key_fingerprint'] as String,
+      setupToken: json['setup_token'] as String,
     );
   }
 
@@ -30,6 +32,7 @@ class PiIdentity {
   final String bleServiceUuid;
   final String publicKey;
   final String keyFingerprint;
+  final String setupToken;
 
   Map<String, dynamic> toJson() => {
     'version': version,
@@ -37,6 +40,7 @@ class PiIdentity {
     'ble_service_uuid': bleServiceUuid,
     'public_key': publicKey,
     'key_fingerprint': keyFingerprint,
+    'setup_token': setupToken,
   };
 }
 

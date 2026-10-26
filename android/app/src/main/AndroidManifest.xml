@@ -9,6 +9,13 @@
         android:label="Bantai Rider App"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
+        <receiver
+            android:name=".BluetoothStateReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.adapter.action.STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <activity
             android:name=".MainActivity"
             android:exported="true"

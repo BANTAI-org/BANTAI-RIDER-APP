@@ -12,5 +12,18 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    let channel = FlutterMethodChannel(
+      name: "bantai/hotspot_settings",
+      binaryMessenger: engineBridge
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "open" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let url = URL(string: "App-Prefs:root=INTERNET_TETHERING")!
+      UIApplication.shared.open(url)
+      result(nil)
+    }
   }
 }

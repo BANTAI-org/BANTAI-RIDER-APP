@@ -28,13 +28,11 @@ Future<void> _requestStartupPermissions() async {
 
   if (locationPermission == LocationPermission.denied ||
       locationPermission == LocationPermission.deniedForever) {
-    debugPrint('Location permission was not granted at startup.');
   }
 
   try {
     final cameras = await availableCameras();
     if (cameras.isEmpty) {
-      debugPrint('No camera is available at startup.');
       return;
     }
 

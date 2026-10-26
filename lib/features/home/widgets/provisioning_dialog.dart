@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/services/hotspot_settings_service.dart';
 import '../../../data/services/provisioning_service.dart';
 import '../controllers/scan_controller.dart';
 
@@ -18,7 +19,6 @@ class ProvisioningDialog extends StatefulWidget {
 }
 
 class _ProvisioningDialogState extends State<ProvisioningDialog> {
-  final _setupTokenController = TextEditingController();
   final _ssidController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -27,7 +27,6 @@ class _ProvisioningDialogState extends State<ProvisioningDialog> {
 
   @override
   void dispose() {
-    _setupTokenController.dispose();
     _ssidController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -54,6 +53,7 @@ class _ProvisioningDialogState extends State<ProvisioningDialog> {
     return switch (step) {
       ProvisioningStep.scanningQr => 'Device Detected',
       ProvisioningStep.connectingBle => 'Connecting...',
+      ProvisioningStep.awaitingDetails => 'Details',
       ProvisioningStep.authenticating => 'Authenticating...',
       ProvisioningStep.sendingCredentials => 'Sending Credentials...',
       ProvisioningStep.completed => 'Setup Complete',
@@ -136,27 +136,6 @@ class _ProvisioningDialogState extends State<ProvisioningDialog> {
               const SizedBox(height: 16),
             ],
             const Text(
-              'Setup Token',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _setupTokenController,
-              decoration: const InputDecoration(
-                hintText: 'Enter the setup token from the Pi',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Setup token is required';
-                }
-                return null;
-              },
-              onChanged: (value) => widget.controller.setSetupToken(value.trim()),
-            ),
-            const SizedBox(height: 20),
-            const Text(
               'Phone Hotspot Credentials',
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
@@ -164,6 +143,14 @@ class _ProvisioningDialogState extends State<ProvisioningDialog> {
             const Text(
               'The Pi will connect to your phone\'s hotspot for internet access.',
               style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await HotspotSettingsService.open();
+              },
+              icon: const Icon(Icons.settings),
+              label: const Text('Open phone hotspot settings'),
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -286,7 +273,6 @@ class _ProvisioningDialogState extends State<ProvisioningDialog> {
       return;
     }
 
-    widget.controller.setSetupToken(_setupTokenController.text.trim());
     widget.controller.setHotspotCredentials(
       _ssidController.text.trim(),
       _passwordController.text,

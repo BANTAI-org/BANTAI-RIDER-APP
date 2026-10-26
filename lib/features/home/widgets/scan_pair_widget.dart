@@ -62,13 +62,6 @@ class ScanPairWidget extends StatelessWidget {
           color: const Color(0xFFE51D24),
           onTap: onUnpairDevice,
         ),
-        _PairAction(
-          icon: Icons.flag_outlined,
-          title: 'Report lost or stolen device',
-          subtitle: 'Locks the unit and alerts your operator',
-          color: const Color(0xFFE51D24),
-          onTap: onReportLostDevice,
-        ),
       ],
     );
   }
@@ -115,11 +108,14 @@ class _QrScannerFrameState extends State<_QrScannerFrame> {
   void _onProvisioningChange() {
     final step = widget.controller.provisioningStep;
     final identity = widget.controller.scannedPiIdentity;
-    
-    debugPrint('[BANTAI] _onProvisioningChange: step=$step, identity=$identity, _dialogShown=$_dialogShown');
+
+    debugPrint(
+      '[BANTAI] _onProvisioningChange: step=$step, identity=${identity?.deviceId}, _dialogShown=$_dialogShown, mounted=$mounted',
+    );
 
     if (identity != null &&
-        step == ProvisioningStep.connectingBle &&
+        (step == ProvisioningStep.awaitingDetails ||
+            step == ProvisioningStep.connectingBle) &&
         !_dialogShown &&
         mounted) {
       debugPrint('[BANTAI] Showing provisioning dialog');
@@ -128,7 +124,10 @@ class _QrScannerFrameState extends State<_QrScannerFrame> {
       showProvisioningDialog(
         context,
         controller: widget.controller,
-        onProvision: () => widget.controller.startProvisioning(),
+        onProvision: () {
+          debugPrint('[BANTAI] onProvision called');
+          return widget.controller.startProvisioning();
+        },
       ).then((_) {
         _dialogShown = false;
         _scannerController.start();
