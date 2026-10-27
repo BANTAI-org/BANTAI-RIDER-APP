@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -195,68 +194,7 @@ class CommsController extends ChangeNotifier {
   };
 
   Future<void> initialize() async {
-    _loadMockData(); // Pre-populate mock riders to match design preview
     await Future.wait([refreshLocation(), connect()]);
-  }
-
-  void _loadMockData() {
-    final mockRiders = [
-      const NearbyRider(
-        id: 'JOY-0871',
-        status: 'Critical',
-        distance: '900 m',
-        location: 'C5 Service Rd. cor. Kalayaan Ave.',
-        updatedAt: '2 min ago',
-        isCritical: true,
-        isNeedHelp: false,
-        latitude: 14.5580,
-        longitude: 121.0560,
-        riderName: 'Emman',
-        platform: 'JoyRide',
-        respondersSummary: '4 riders responding',
-        respondersInfo: 'MDRRMO Ambulance • ETA 3 min',
-        riderInfo: 'Plate NBH 8821 • Blood type B+',
-        crashDetectionText: 'Side impact · rider down, no movement for 40 s',
-        helpNeededText: 'Passenger conscious. Rider pinned under bike - needs 2 people to lift.',
-      ),
-      const NearbyRider(
-        id: 'ANG-1190',
-        status: 'Needs help',
-        distance: '1.7 km',
-        location: 'Shaw Blvd. near Kapitolyo flyover',
-        updatedAt: '6 min ago',
-        isCritical: false,
-        isNeedHelp: true,
-        latitude: 14.5720,
-        longitude: 121.0620,
-        riderName: 'Alex',
-        platform: 'Angkas',
-        respondersSummary: '2 riders responding',
-        respondersInfo: 'Nearby volunteers',
-        riderInfo: 'Plate XYZ 1234 • Blood type O+',
-        helpNeededText:
-            'Flat tire near flyover, needs portable pump or spare tube.',
-      ),
-      const NearbyRider(
-        id: 'MOV-3390',
-        status: '',
-        distance: '2.6 km',
-        location: 'Ortigas Ave. cor. Meralco Ave.',
-        updatedAt: '14 min ago',
-        isCritical: false,
-        isNeedHelp: false,
-        latitude: 14.5880,
-        longitude: 121.0680,
-        riderName: 'Mark',
-        platform: 'MoveIt',
-        respondersSummary: '1 rider responding',
-      ),
-    ];
-
-    for (final rider in mockRiders) {
-      _riders[rider.id] = rider;
-    }
-    notifyListeners();
   }
 
   void selectMode(CommsMode mode) {

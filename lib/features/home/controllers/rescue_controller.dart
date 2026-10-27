@@ -7,11 +7,10 @@ class RescueController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isRescueActive => _isRescueActive;
 
-  String get dispatchedMessage =>
-      'MDRRMO Ambulance dispatched. ETA 3 minutes. Stay where you are.';
-  String get activeUnit => 'MDRRMO Ambulance';
-  String get activeUnitDetails => 'Unit AMB-04 - Pasig Rescue';
-  String get activeUnitDistance => '800 m';
+  String get dispatchedMessage => '';
+  String get activeUnit => '';
+  String get activeUnitDetails => '';
+  String get activeUnitDistance => '';
 
   Future<void> previewIncident() async {
     _isRescueActive = true;

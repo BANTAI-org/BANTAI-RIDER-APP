@@ -1,10 +1,20 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../controllers/comms_controller.dart';
+
+const _kUrgentRed = Color(0xFFFF3B30);
+const _kNeutralGrey = Color(0xFFB9C3D0);
+
+/// Zoom that fits the whole 3 km ring inside the 240 px tall map card.
+const double _kCoverageZoom = 12.3;
+
+bool _isUrgent(NearbyRider r) => r.isCritical || r.isNeedHelp;
 
 class CommsMapPanel extends StatefulWidget {
   const CommsMapPanel({super.key, required this.controller});
@@ -17,6 +27,7 @@ class CommsMapPanel extends StatefulWidget {
 
 class _CommsMapPanelState extends State<CommsMapPanel> {
   GoogleMapController? _mapController;
+  bool _hasCentered = false;
 
   @override
   void initState() {
@@ -30,13 +41,18 @@ class _CommsMapPanelState extends State<CommsMapPanel> {
     super.dispose();
   }
 
+  /// Only recenter ONCE when the first GPS fix arrives. Recentering on every
+  /// controller update was snapping the camera back and undoing user panning.
   void _handleControllerChanged() {
     final position = widget.controller.position;
-    if (position != null && _mapController != null) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
-      );
-    }
+    if (_hasCentered || position == null || _mapController == null) return;
+    _hasCentered = true;
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        LatLng(position.latitude, position.longitude),
+        _kCoverageZoom,
+      ),
+    );
   }
 
   void _showRiderLocationModal(NearbyRider rider) {
@@ -53,7 +69,7 @@ class _CommsMapPanelState extends State<CommsMapPanel> {
   Widget build(BuildContext context) {
     final position = widget.controller.position;
     final center = position == null
-        ? const LatLng(14.5764, 121.0851)
+        ? const LatLng(0, 0)
         : LatLng(position.latitude, position.longitude);
 
     return Column(
@@ -61,7 +77,10 @@ class _CommsMapPanelState extends State<CommsMapPanel> {
         _MapCard(
           controller: widget.controller,
           center: center,
-          onMapCreated: (controller) => _mapController = controller,
+          onMapCreated: (controller) {
+            _mapController = controller;
+            _hasCentered = widget.controller.position != null;
+          },
           onRiderTap: _showRiderLocationModal,
         ),
         if (widget.controller.locationError != null)
@@ -103,8 +122,6 @@ class _MapCard extends StatefulWidget {
 }
 
 class _MapCardState extends State<_MapCard> {
-  static const _red = Color(0xFFFF3B30);
-  static const _grey = Color(0xFFB9C3D0);
   static const _green = Color(0xFF22C55E);
 
   GoogleMapController? _mapController;
@@ -120,12 +137,11 @@ class _MapCardState extends State<_MapCard> {
   Future<void> _loadAssets() async {
     try {
       _mapStyle = await rootBundle.loadString('assets/map_style.json');
-      _mapController?.setMapStyle(_mapStyle); // in case map is already created
     } catch (e) {
       debugPrint('Error loading map style: $e');
     }
-    final red = await _makePin(_red, glow: true);
-    final grey = await _makePin(_grey, glow: true);
+    final red = await _makePin(_kUrgentRed, glow: true);
+    final grey = await _makePin(_kNeutralGrey, glow: true);
     final you = await _makePin(_green, glow: false, size: 16);
     if (!mounted) return;
     setState(() {
@@ -139,7 +155,7 @@ class _MapCardState extends State<_MapCard> {
   Future<BitmapDescriptor> _makePin(
     Color color, {
     required bool glow,
-    double size = 26,
+    double size = 30,
   }) async {
     const ratio = 3.0;
     final canvasSize = (glow ? size * 2.2 : size + 6) * ratio;
@@ -152,7 +168,7 @@ class _MapCardState extends State<_MapCard> {
         Offset(c, c),
         size * 0.95 * ratio,
         Paint()
-          ..color = color.withOpacity(0.35)
+          ..color = color.withValues(alpha: 0.35)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
       );
     } else {
@@ -160,7 +176,7 @@ class _MapCardState extends State<_MapCard> {
         Offset(c, c),
         (size / 2 + 3) * ratio,
         Paint()
-          ..color = Colors.black.withOpacity(0.18)
+          ..color = Colors.black.withValues(alpha: 0.18)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
       );
     }
@@ -186,19 +202,25 @@ class _MapCardState extends State<_MapCard> {
     );
   }
 
+  LatLng? _riderLatLng(NearbyRider rider) {
+    if (rider.latitude == null || rider.longitude == null) return null;
+    return LatLng(rider.latitude!, rider.longitude!);
+  }
+
   Set<Marker> _buildMarkers() {
     final markers = <Marker>{};
     for (final rider in widget.controller.nearbyRiders) {
-      if (rider.latitude == null || rider.longitude == null) continue;
-      final urgent = rider.isCritical || rider.isNeedHelp;
+      final pos = _riderLatLng(rider);
+      if (pos == null) continue;
+      final urgent = _isUrgent(rider);
       final icon = urgent ? _redPin : _greyPin;
       markers.add(
         Marker(
           markerId: MarkerId(rider.id),
-          position: LatLng(rider.latitude!, rider.longitude!),
+          position: pos,
           icon: icon ?? BitmapDescriptor.defaultMarker,
           anchor: const Offset(0.5, 0.5),
-          zIndex: urgent ? 2 : 1,
+          zIndexInt: urgent ? 2 : 1,
           onTap: () => widget.onRiderTap(rider),
         ),
       );
@@ -210,7 +232,7 @@ class _MapCardState extends State<_MapCard> {
           position: widget.center,
           icon: _youDot!,
           anchor: const Offset(0.5, 0.5),
-          zIndex: 3,
+          zIndexInt: 3,
         ),
       );
     }
@@ -224,9 +246,17 @@ class _MapCardState extends State<_MapCard> {
       radius: 3000,
       strokeColor: _green,
       strokeWidth: 1,
-      fillColor: _green.withOpacity(0.04),
+      fillColor: _green.withValues(alpha: 0.04),
     ),
   };
+
+  Future<void> _onLocateTap() async {
+    await widget.controller.refreshLocation();
+    if (!mounted) return;
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLngZoom(widget.center, _kCoverageZoom),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -239,8 +269,20 @@ class _MapCardState extends State<_MapCard> {
             GoogleMap(
               initialCameraPosition: CameraPosition(
                 target: widget.center,
-                zoom: 13.2, // wide enough to show the full 3 km ring
+                zoom: _kCoverageZoom,
               ),
+              style: _mapStyle,
+              // Claim every touch that starts on the map so the parent
+              // scroll view doesn't steal pan/pinch gestures.
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                Factory<OneSequenceGestureRecognizer>(
+                  () => EagerGestureRecognizer(),
+                ),
+              },
+              scrollGesturesEnabled: true,
+              zoomGesturesEnabled: true,
+              rotateGesturesEnabled: false,
+              tiltGesturesEnabled: false,
               myLocationEnabled: false, // we draw our own green dot
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
@@ -250,7 +292,6 @@ class _MapCardState extends State<_MapCard> {
               markers: _buildMarkers(),
               onMapCreated: (mc) {
                 _mapController = mc;
-                if (_mapStyle != null) mc.setMapStyle(_mapStyle);
                 widget.onMapCreated(mc);
               },
             ),
@@ -276,40 +317,50 @@ class _MapCardState extends State<_MapCard> {
               ),
             ),
 
-            // "Within 3 km of you" pill
-            Positioned(
-              left: 12,
-              bottom: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                decoration: _whiteBox(BorderRadius.circular(20)),
-                child: const Text(
-                  'Within 3 km of you',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A1A),
+            if (widget.controller.position != null)
+              Positioned(
+                left: 12,
+                bottom: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: _whiteBox(BorderRadius.circular(20)),
+                  child: const Text(
+                    'Within coverage area',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1A1A),
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Locate button (red crosshair)
+            // Locate button (red circle, white crosshair)
             Positioned(
               right: 12,
               bottom: 12,
               child: Container(
                 width: 36,
                 height: 36,
-                decoration: _whiteBox(BorderRadius.circular(18)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6001A),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFE6001A).withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: widget.controller.refreshLocation,
+                    customBorder: const CircleBorder(),
+                    onTap: _onLocateTap,
                     child: Center(
                       child: widget.controller.isLoadingLocation
                           ? const SizedBox(
@@ -318,14 +369,14 @@ class _MapCardState extends State<_MapCard> {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  Color(0xFFE6001A),
+                                  Colors.white,
                                 ),
                               ),
                             )
                           : const Icon(
                               Icons.gps_fixed,
                               size: 18,
-                              color: Color(0xFFE6001A),
+                              color: Colors.white,
                             ),
                     ),
                   ),
@@ -343,7 +394,7 @@ class _MapCardState extends State<_MapCard> {
     borderRadius: radius,
     boxShadow: [
       BoxShadow(
-        color: Colors.black.withOpacity(0.12),
+        color: Colors.black.withValues(alpha: 0.12),
         blurRadius: 8,
         offset: const Offset(0, 2),
       ),
@@ -374,6 +425,40 @@ class _ZoomButton extends StatelessWidget {
   }
 }
 
+/// Avatar matching the design: solid red + glow + white icon when urgent,
+/// soft grey otherwise.
+class _RiderAvatar extends StatelessWidget {
+  const _RiderAvatar({required this.urgent, this.size = 40});
+
+  final bool urgent;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: urgent ? _kUrgentRed : const Color(0xFFEDEFF2),
+        boxShadow: urgent
+            ? [
+                BoxShadow(
+                  color: _kUrgentRed.withValues(alpha: 0.45),
+                  blurRadius: 12,
+                ),
+              ]
+            : null,
+      ),
+      child: Icon(
+        Icons.person,
+        size: size * 0.5,
+        color: urgent ? Colors.white : _kNeutralGrey,
+      ),
+    );
+  }
+}
+
 class _NearbyRiderCard extends StatelessWidget {
   const _NearbyRiderCard({required this.rider, required this.onTap});
 
@@ -382,9 +467,7 @@ class _NearbyRiderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = rider.isCritical
-        ? const Color(0xFFFF3B30)
-        : const Color(0xFFB9C3D0);
+    final urgent = _isUrgent(rider);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -402,11 +485,7 @@ class _NearbyRiderCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: accent.withOpacity(0.18),
-              child: Icon(Icons.person, size: 20, color: accent),
-            ),
+            _RiderAvatar(urgent: urgent),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -455,9 +534,7 @@ class _NearbyRiderCard extends StatelessWidget {
                 Text(
                   rider.distance,
                   style: TextStyle(
-                    color: rider.isCritical || rider.isNeedHelp
-                        ? const Color(0xFFE6001A)
-                        : Colors.black,
+                    color: urgent ? const Color(0xFFE6001A) : Colors.black,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -511,10 +588,6 @@ class _RiderLocationModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = rider.isCritical
-        ? const Color(0xFFFF3B30)
-        : const Color(0xFFB9C3D0);
-
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -543,11 +616,7 @@ class _RiderLocationModal extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: accent.withOpacity(0.18),
-                      child: Icon(Icons.person, size: 24, color: accent),
-                    ),
+                    _RiderAvatar(urgent: _isUrgent(rider), size: 48),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -561,16 +630,12 @@ class _RiderLocationModal extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Text(
-                                '${rider.riderName ?? "Emman"} • ${rider.platform ?? "JoyRide"} • ${rider.updatedAt}',
-                                style: const TextStyle(
-                                  color: Color(0xFF858894),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            '${rider.riderName ?? "Emman"} • ${rider.platform ?? "JoyRide"} • ${rider.updatedAt}',
+                            style: const TextStyle(
+                              color: Color(0xFF858894),
+                              fontSize: 11,
+                            ),
                           ),
                           if (rider.status.isNotEmpty) ...[
                             const SizedBox(height: 4),

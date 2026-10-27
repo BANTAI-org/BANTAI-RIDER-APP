@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../controllers/profile_controller.dart';
 
 class SosBroadcastPage extends StatelessWidget {
@@ -12,43 +13,53 @@ class SosBroadcastPage extends StatelessWidget {
     final items = <_SosBroadcastItem>[];
 
     if (data?.bloodType != null) {
-      items.add(_SosBroadcastItem(
-        icon: Icons.bloodtype_outlined,
-        title: 'Blood type',
-        value: data!.bloodType!,
-      ));
+      items.add(
+        _SosBroadcastItem(
+          icon: Icons.bloodtype_outlined,
+          title: 'Blood type',
+          value: data!.bloodType!,
+        ),
+      );
     }
 
     if (data?.plateNumber != null) {
-      items.add(_SosBroadcastItem(
-        icon: Icons.confirmation_number_outlined,
-        title: 'Plate no.',
-        value: data!.plateNumber!,
-      ));
+      items.add(
+        _SosBroadcastItem(
+          icon: Icons.confirmation_number_outlined,
+          title: 'Plate no.',
+          value: data!.plateNumber!,
+        ),
+      );
     }
 
     if (data?.conditions != null) {
-      items.add(_SosBroadcastItem(
-        icon: Icons.medical_information_outlined,
-        title: 'Conditions',
-        value: data!.conditions!,
-      ));
+      items.add(
+        _SosBroadcastItem(
+          icon: Icons.medical_information_outlined,
+          title: 'Conditions',
+          value: data!.conditions!,
+        ),
+      );
     }
 
     if (data?.firstCallContact != null) {
-      items.add(_SosBroadcastItem(
-        icon: Icons.phone_outlined,
-        title: 'First call',
-        value: data!.firstCallContact!,
-      ));
+      items.add(
+        _SosBroadcastItem(
+          icon: Icons.phone_outlined,
+          title: 'First call',
+          value: data!.firstCallContact!,
+        ),
+      );
     }
 
     if (data?.licenseExpiry != null) {
-      items.add(_SosBroadcastItem(
-        icon: Icons.credit_card_outlined,
-        title: 'License expiry',
-        value: data!.licenseExpiry!,
-      ));
+      items.add(
+        _SosBroadcastItem(
+          icon: Icons.credit_card_outlined,
+          title: 'License expiry',
+          value: data!.licenseExpiry!,
+        ),
+      );
     }
 
     return Scaffold(
@@ -78,10 +89,7 @@ class SosBroadcastPage extends StatelessWidget {
             children: [
               const Text(
                 'SOS Broadcast',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -103,7 +111,7 @@ class SosBroadcastPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
+                        color: Colors.black.withValues(alpha: 0.04),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -112,10 +120,7 @@ class SosBroadcastPage extends StatelessWidget {
                   child: const Center(
                     child: Text(
                       'No SOS broadcast data available',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF8C8D93),
-                      ),
+                      style: TextStyle(fontSize: 14, color: Color(0xFF8C8D93)),
                     ),
                   ),
                 ),
@@ -140,7 +145,7 @@ class _SosBroadcastCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -191,11 +196,7 @@ class _SosBroadcastItem extends StatelessWidget {
               color: const Color(0xFFF5F5F7),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: const Color(0xFF6B6C72),
-            ),
+            child: Icon(icon, size: 20, color: const Color(0xFF6B6C72)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -222,11 +223,7 @@ class _SosBroadcastItem extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(
-            Icons.chevron_right,
-            color: Color(0xFFD1D1D6),
-            size: 20,
-          ),
+          const Icon(Icons.chevron_right, color: Color(0xFFD1D1D6), size: 20),
         ],
       ),
     );

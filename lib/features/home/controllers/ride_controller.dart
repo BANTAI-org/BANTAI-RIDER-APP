@@ -8,7 +8,7 @@ class RideController extends ChangeNotifier {
   bool _isSessionLive = false;
   Duration _sessionRemaining = Duration.zero;
   Timer? _sessionTimer;
-  Duration _selectedDuration = const Duration(hours: 2);
+  Duration _selectedDuration = Duration.zero;
 
   Duration get selectedDuration => _selectedDuration;
 
@@ -34,13 +34,13 @@ class RideController extends ChangeNotifier {
     return '$hours:$minutes:$seconds';
   }
 
-  String get sessionDuration => '01:17:40';
-  String get distanceTravelled => '38.4 km';
-  String get clipsRecorded => '12';
-  String get nearbyHelpCount => '2';
-  String get nearbyHelpDistance => '3 km';
-  String get nearestRider => 'JOY-0871 down · C5';
-  String get nearbyService => 'Service Rd · 900 m';
+  String get sessionDuration => '';
+  String get distanceTravelled => '';
+  String get clipsRecorded => '';
+  String get nearbyHelpCount => '';
+  String get nearbyHelpDistance => '';
+  String get nearestRider => '';
+  String get nearbyService => '';
 
   Future<void> loadRideDashboard() async {
     _setLoading(true);

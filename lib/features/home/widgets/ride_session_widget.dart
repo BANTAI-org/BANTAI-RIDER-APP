@@ -30,11 +30,11 @@ class RideSessionWidget extends StatelessWidget {
             : () => _showDurationPicker(context),
         borderRadius: BorderRadius.circular(18),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
           child: Row(
             children: [
               const _PowerBadge(),
-              const SizedBox(width: 18),
+              const SizedBox(width: 20),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,7 +45,7 @@ class RideSessionWidget extends StatelessWidget {
                           : 'Session is off',
                       style: const TextStyle(
                         color: Colors.black,
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -56,8 +56,8 @@ class RideSessionWidget extends StatelessWidget {
                           : 'Tap to start a session',
                       style: const TextStyle(
                         color: Color(0xFF85858B),
-                        fontSize: 11,
-                        height: 1.15,
+                        fontSize: 13,
+                        height: 1.2,
                       ),
                     ),
                   ],
@@ -254,8 +254,8 @@ class _PowerBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 34,
-      height: 34,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: const Color(0xFF7BE38E),
@@ -270,7 +270,7 @@ class _PowerBadge extends StatelessWidget {
       child: const Icon(
         Icons.power_settings_new,
         color: Colors.white,
-        size: 23,
+        size: 27,
       ),
     );
   }
@@ -285,7 +285,7 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFFB4F2C0),
         borderRadius: BorderRadius.circular(18),
@@ -295,13 +295,13 @@ class _StatusPill extends StatelessWidget {
         children: [
           const Icon(Icons.circle, color: Color(0xFF25C66A), size: 7),
           const SizedBox(width: 4),
-          Icon(icon, color: const Color(0xFF32B953), size: 15),
+          Icon(icon, color: const Color(0xFF32B953), size: 17),
           const SizedBox(width: 3),
           Text(
             label,
             style: const TextStyle(
               color: Color(0xFF398F4E),
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
           ),

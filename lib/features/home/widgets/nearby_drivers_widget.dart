@@ -22,14 +22,14 @@ class NearbyHelpCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionLabel('Nearby'),
-        const SizedBox(height: 7),
+        const SizedBox(height: 9),
         _DashboardSurface(
           onTap: onTap,
-          padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+          padding: const EdgeInsets.fromLTRB(20, 17, 16, 17),
           child: Row(
             children: [
-              const Text('📍', style: TextStyle(fontSize: 23)),
-              const SizedBox(width: 14),
+              const Text('📍', style: TextStyle(fontSize: 28)),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,7 +37,7 @@ class NearbyHelpCard extends StatelessWidget {
                     Text(
                       '$count riders need help within $distance',
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -46,8 +46,8 @@ class NearbyHelpCard extends StatelessWidget {
                       'Nearest: $nearestRider\n$service',
                       style: const TextStyle(
                         color: Color(0xFF8C8D93),
-                        fontSize: 11,
-                        height: 1.25,
+                        fontSize: 13,
+                        height: 1.3,
                       ),
                     ),
                   ],
@@ -56,7 +56,7 @@ class NearbyHelpCard extends StatelessWidget {
               const Icon(
                 Icons.chevron_right,
                 color: Color(0xFFB3B4B9),
-                size: 23,
+                size: 28,
               ),
             ],
           ),
