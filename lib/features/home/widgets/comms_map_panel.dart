@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -10,9 +11,20 @@ import '../controllers/comms_controller.dart';
 
 const _kUrgentRed = Color(0xFFFF3B30);
 const _kNeutralGrey = Color(0xFFB9C3D0);
+const _kGreen = Color(0xFF22C55E);
+const _kAmber = Color(0xFFF59E0B);
+const _kMuted = Color(0xFF858894);
+
+/// Shown until the first GPS fix arrives (Manila area, matches the design).
+const _kDefaultCenter = LatLng(14.5764, 121.0851);
 
 /// Zoom that fits the whole 3 km ring inside the 240 px tall map card.
 const double _kCoverageZoom = 12.3;
+
+/// Only for design testing: places pins for riders that have no coordinates.
+/// Keep this false in real builds so a pin is never in a made-up position.
+const bool _kPlaceholderPins = false;
+const _kPlaceholderBearings = <double>[315, 135, 10, 225, 60];
 
 bool _isUrgent(NearbyRider r) => r.isCritical || r.isNeedHelp;
 
@@ -41,8 +53,8 @@ class _CommsMapPanelState extends State<CommsMapPanel> {
     super.dispose();
   }
 
-  /// Only recenter ONCE when the first GPS fix arrives. Recentering on every
-  /// controller update was snapping the camera back and undoing user panning.
+  /// Only recenter ONCE when the first GPS fix arrives, so user panning isn't
+  /// undone by later controller updates.
   void _handleControllerChanged() {
     final position = widget.controller.position;
     if (_hasCentered || position == null || _mapController == null) return;
@@ -65,34 +77,75 @@ class _CommsMapPanelState extends State<CommsMapPanel> {
     );
   }
 
+  /// The card shown under the map when there is something to explain.
+  /// Returns null when the normal rider list should be shown on its own.
+  ///
+  /// Important: "no incidents" is only claimed when we actually know it
+  /// (location known AND live connection up). Otherwise we say what is wrong.
+  Widget? _buildNotice(CommsController c, bool hasRiders) {
+    if (c.position == null) {
+      return _NoticeCard(
+        icon: Icons.location_off_outlined,
+        color: _kMuted,
+        title: 'Location needed',
+        message: c.locationError ?? 'Waiting for your location…',
+        actionLabel: c.isLoadingLocation ? null : 'Try again',
+        onAction: c.refreshLocation,
+      );
+    }
+    if (!c.isConnected) {
+      final connecting =
+          c.connectionState == CommsConnectionState.connecting ||
+          c.connectionState == CommsConnectionState.reconnecting;
+      final fallback = hasRiders
+          ? 'Showing the last known incidents. They may be out of date.'
+          : "We'll keep trying to reconnect.";
+      return _NoticeCard(
+        icon: connecting ? Icons.sync : Icons.cloud_off_outlined,
+        color: _kAmber,
+        title: connecting
+            ? 'Connecting to live updates…'
+            : 'Live updates unavailable',
+        message: kDebugMode && c.connectionError != null && !hasRiders
+            ? c.connectionError!
+            : fallback,
+      );
+    }
+    if (!hasRiders) {
+      return const _NoticeCard(
+        icon: Icons.check_circle_outline,
+        color: _kGreen,
+        title: 'No incidents within 3 km',
+        message: 'Nothing has been reported near you. This updates live.',
+      );
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final position = widget.controller.position;
+    final c = widget.controller;
+    final position = c.position;
     final center = position == null
-        ? const LatLng(0, 0)
+        ? _kDefaultCenter
         : LatLng(position.latitude, position.longitude);
+    final riders = c.nearbyRiders;
+    final notice = _buildNotice(c, riders.isNotEmpty);
 
     return Column(
       children: [
         _MapCard(
-          controller: widget.controller,
+          controller: c,
           center: center,
           onMapCreated: (controller) {
             _mapController = controller;
-            _hasCentered = widget.controller.position != null;
+            _hasCentered = c.position != null;
           },
           onRiderTap: _showRiderLocationModal,
         ),
-        if (widget.controller.locationError != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 7),
-            child: Text(
-              widget.controller.locationError!,
-              style: const TextStyle(color: Color(0xFFE6001A), fontSize: 11),
-            ),
-          ),
         const SizedBox(height: 10),
-        for (final rider in widget.controller.nearbyRiders) ...[
+        if (notice != null) ...[notice, const SizedBox(height: 7)],
+        for (final rider in riders) ...[
           _NearbyRiderCard(
             rider: rider,
             onTap: () => _showRiderLocationModal(rider),
@@ -100,6 +153,93 @@ class _CommsMapPanelState extends State<CommsMapPanel> {
           const SizedBox(height: 7),
         ],
       ],
+    );
+  }
+}
+
+/// Neutral info card used for empty / offline / location states.
+class _NoticeCard extends StatelessWidget {
+  const _NoticeCard({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 7,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.12),
+            ),
+            child: Icon(icon, size: 20, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  message,
+                  style: const TextStyle(color: _kMuted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          if (actionLabel != null && onAction != null)
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFE6001A),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 32),
+              ),
+              child: Text(
+                actionLabel!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -122,11 +262,10 @@ class _MapCard extends StatefulWidget {
 }
 
 class _MapCardState extends State<_MapCard> {
-  static const _green = Color(0xFF22C55E);
-
   GoogleMapController? _mapController;
   String? _mapStyle;
   BitmapDescriptor? _redPin, _greyPin, _youDot;
+  bool _assetsReady = false;
 
   @override
   void initState() {
@@ -142,12 +281,13 @@ class _MapCardState extends State<_MapCard> {
     }
     final red = await _makePin(_kUrgentRed, glow: true);
     final grey = await _makePin(_kNeutralGrey, glow: true);
-    final you = await _makePin(_green, glow: false, size: 16);
+    final you = await _makePin(_kGreen, glow: false, size: 14);
     if (!mounted) return;
     setState(() {
       _redPin = red;
       _greyPin = grey;
       _youDot = you;
+      _assetsReady = true;
     });
   }
 
@@ -155,10 +295,10 @@ class _MapCardState extends State<_MapCard> {
   Future<BitmapDescriptor> _makePin(
     Color color, {
     required bool glow,
-    double size = 30,
+    double size = 28,
   }) async {
     const ratio = 3.0;
-    final canvasSize = (glow ? size * 2.2 : size + 6) * ratio;
+    final canvasSize = (glow ? size * 2.4 : size + 6) * ratio;
     final c = canvasSize / 2;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -168,8 +308,15 @@ class _MapCardState extends State<_MapCard> {
         Offset(c, c),
         size * 0.95 * ratio,
         Paint()
-          ..color = color.withValues(alpha: 0.35)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
+          ..color = color.withValues(alpha: 0.28)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16),
+      );
+      canvas.drawCircle(
+        Offset(c, c),
+        size * 0.62 * ratio,
+        Paint()
+          ..color = color.withValues(alpha: 0.45)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
     } else {
       canvas.drawCircle(
@@ -187,7 +334,7 @@ class _MapCardState extends State<_MapCard> {
     );
     canvas.drawCircle(
       Offset(c, c),
-      (size / 2 - (glow ? 2.5 : 2)) * ratio,
+      (size / 2 - 2) * ratio,
       Paint()..color = color,
     );
 
@@ -202,15 +349,39 @@ class _MapCardState extends State<_MapCard> {
     );
   }
 
-  LatLng? _riderLatLng(NearbyRider rider) {
-    if (rider.latitude == null || rider.longitude == null) return null;
-    return LatLng(rider.latitude!, rider.longitude!);
+  /// Real coordinates when present. Only when [_kPlaceholderPins] is true
+  /// (design testing) a position is derived from the distance text.
+  LatLng? _riderLatLng(NearbyRider rider, int index) {
+    if (rider.latitude != null && rider.longitude != null) {
+      return LatLng(rider.latitude!, rider.longitude!);
+    }
+    if (!_kPlaceholderPins) return null;
+
+    final m = RegExp(r'([\d.]+)\s*(km|m)\b')
+        .firstMatch(rider.distance.toLowerCase());
+    if (m == null) return null;
+    var meters = double.tryParse(m.group(1)!) ?? 0;
+    if (m.group(2) == 'km') meters *= 1000;
+
+    final bearing =
+        _kPlaceholderBearings[index % _kPlaceholderBearings.length] *
+        math.pi /
+        180;
+    final c = widget.center;
+    final dLat = meters * math.cos(bearing) / 111320;
+    final dLng =
+        meters *
+        math.sin(bearing) /
+        (111320 * math.cos(c.latitude * math.pi / 180));
+    return LatLng(c.latitude + dLat, c.longitude + dLng);
   }
 
   Set<Marker> _buildMarkers() {
     final markers = <Marker>{};
-    for (final rider in widget.controller.nearbyRiders) {
-      final pos = _riderLatLng(rider);
+    final riders = widget.controller.nearbyRiders;
+    for (var i = 0; i < riders.length; i++) {
+      final rider = riders[i];
+      final pos = _riderLatLng(rider, i);
       if (pos == null) continue;
       final urgent = _isUrgent(rider);
       final icon = urgent ? _redPin : _greyPin;
@@ -239,16 +410,18 @@ class _MapCardState extends State<_MapCard> {
     return markers;
   }
 
-  Set<Circle> _buildCircles() => {
-    Circle(
-      circleId: const CircleId('coverage'),
-      center: widget.center,
-      radius: 3000,
-      strokeColor: _green,
-      strokeWidth: 1,
-      fillColor: _green.withValues(alpha: 0.04),
-    ),
-  };
+  Set<Circle> _buildCircles() => widget.controller.position == null
+      ? const {}
+      : {
+          Circle(
+            circleId: const CircleId('coverage'),
+            center: widget.center,
+            radius: kNearbyRadiusMeters,
+            strokeColor: _kGreen,
+            strokeWidth: 2,
+            fillColor: _kGreen.withValues(alpha: 0.05),
+          ),
+        };
 
   Future<void> _onLocateTap() async {
     await widget.controller.refreshLocation();
@@ -258,133 +431,198 @@ class _MapCardState extends State<_MapCard> {
     );
   }
 
+  /// Small status chip (top left): Live / Connecting… / Offline.
+  Widget _buildLiveChip() {
+    final (color, label) = switch (widget.controller.connectionState) {
+      CommsConnectionState.connected => (_kGreen, 'Live'),
+      CommsConnectionState.connecting ||
+      CommsConnectionState.reconnecting => (_kAmber, 'Connecting…'),
+      CommsConnectionState.disconnected => (const Color(0xFF9AA0AA), 'Offline'),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: _whiteBox(BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1A1A1A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: SizedBox(
         height: 240,
-        child: Stack(
-          children: [
-            GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: widget.center,
-                zoom: _kCoverageZoom,
-              ),
-              style: _mapStyle,
-              // Claim every touch that starts on the map so the parent
-              // scroll view doesn't steal pan/pinch gestures.
-              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                Factory<OneSequenceGestureRecognizer>(
-                  () => EagerGestureRecognizer(),
-                ),
-              },
-              scrollGesturesEnabled: true,
-              zoomGesturesEnabled: true,
-              rotateGesturesEnabled: false,
-              tiltGesturesEnabled: false,
-              myLocationEnabled: false, // we draw our own green dot
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              compassEnabled: false,
-              mapToolbarEnabled: false,
-              circles: _buildCircles(),
-              markers: _buildMarkers(),
-              onMapCreated: (mc) {
-                _mapController = mc;
-                widget.onMapCreated(mc);
-              },
-            ),
-
-            // Zoom control: single joined pill
-            Positioned(
-              right: 12,
-              top: 12,
-              child: Container(
-                width: 34,
-                decoration: _whiteBox(BorderRadius.circular(10)),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ZoomButton(icon: Icons.add, onTap: () => _changeZoom(1)),
-                    const Divider(height: 1, color: Color(0xFFE6E6E9)),
-                    _ZoomButton(
-                      icon: Icons.remove,
-                      onTap: () => _changeZoom(-1),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            if (widget.controller.position != null)
-              Positioned(
-                left: 12,
-                bottom: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
-                  decoration: _whiteBox(BorderRadius.circular(20)),
-                  child: const Text(
-                    'Within coverage area',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
+        child: !_assetsReady
+            // Don't show the default Google style for a split second: wait
+            // until our style and pins are ready.
+            ? Container(
+                color: const Color(0xFFECEEF1),
+                alignment: Alignment.center,
+                child: const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFFB0B1B7),
                     ),
                   ),
                 ),
-              ),
-
-            // Locate button (red circle, white crosshair)
-            Positioned(
-              right: 12,
-              bottom: 12,
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE6001A),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFE6001A).withValues(alpha: 0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+              )
+            : Stack(
+                children: [
+                  // ---- Map layer (bottom) ----
+                  GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: widget.center,
+                      zoom: _kCoverageZoom,
                     ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: _onLocateTap,
-                    child: Center(
-                      child: widget.controller.isLoadingLocation
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                          : const Icon(
-                              Icons.gps_fixed,
-                              size: 18,
-                              color: Colors.white,
-                            ),
+                    style: _mapStyle,
+                    minMaxZoomPreference: const MinMaxZoomPreference(10, 17),
+                    // Claim every touch that starts on the map so the parent
+                    // scroll view doesn't steal pan/pinch gestures.
+                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                      Factory<OneSequenceGestureRecognizer>(
+                        () => EagerGestureRecognizer(),
+                      ),
+                    },
+                    scrollGesturesEnabled: true,
+                    zoomGesturesEnabled: true,
+                    rotateGesturesEnabled: false,
+                    tiltGesturesEnabled: false,
+                    myLocationEnabled: false, // we draw our own green dot
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    compassEnabled: false,
+                    mapToolbarEnabled: false,
+                    trafficEnabled: false,
+                    buildingsEnabled: false,
+                    indoorViewEnabled: false,
+                    circles: _buildCircles(),
+                    markers: _buildMarkers(),
+                    onMapCreated: (mc) {
+                      _mapController = mc;
+                      widget.onMapCreated(mc);
+                    },
+                  ),
+
+                  // ---- Info boxes layered ABOVE the map ----
+
+                  // Connection status (top left)
+                  Positioned(left: 12, top: 12, child: _buildLiveChip()),
+
+                  // Zoom control: single joined pill (top right)
+                  Positioned(
+                    right: 12,
+                    top: 12,
+                    child: Container(
+                      width: 34,
+                      decoration: _whiteBox(BorderRadius.circular(10)),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _ZoomButton(
+                            icon: Icons.add,
+                            onTap: () => _changeZoom(1),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFE6E6E9)),
+                          _ZoomButton(
+                            icon: Icons.remove,
+                            onTap: () => _changeZoom(-1),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+
+                  // "Within 3 km of you" pill. It sits ABOVE the Google logo
+                  // (bottom left), which stays visible as the terms require.
+                  Positioned(
+                    left: 12,
+                    bottom: 38,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: _whiteBox(BorderRadius.circular(20)),
+                      child: const Text(
+                        'Within 3 km of you',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Locate button: red circle, white crosshair (bottom right)
+                  Positioned(
+                    right: 12,
+                    bottom: 12,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE6001A),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFE6001A)
+                                .withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: _onLocateTap,
+                          child: Center(
+                            child: widget.controller.isLoadingLocation
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.gps_fixed,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -511,10 +749,7 @@ class _NearbyRiderCard extends StatelessWidget {
                     rider.location,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF858894),
-                      fontSize: 11,
-                    ),
+                    style: const TextStyle(color: _kMuted, fontSize: 11),
                   ),
                   const SizedBox(height: 3),
                   Text(
@@ -633,7 +868,7 @@ class _RiderLocationModal extends StatelessWidget {
                           Text(
                             '${rider.riderName ?? "Emman"} • ${rider.platform ?? "JoyRide"} • ${rider.updatedAt}',
                             style: const TextStyle(
-                              color: Color(0xFF858894),
+                              color: _kMuted,
                               fontSize: 11,
                             ),
                           ),
@@ -757,7 +992,7 @@ class _RiderLocationModal extends StatelessWidget {
                       const Text(
                         'What help is needed',
                         style: TextStyle(
-                          color: Color(0xFF858894),
+                          color: _kMuted,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
