@@ -152,7 +152,7 @@ class _MapCardState extends State<_MapCard> {
         Offset(c, c),
         size * 0.95 * ratio,
         Paint()
-          ..color = color.withOpacity(0.35)
+          ..color = color.withValues(alpha: 0.35)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
       );
     } else {
@@ -160,7 +160,7 @@ class _MapCardState extends State<_MapCard> {
         Offset(c, c),
         (size / 2 + 3) * ratio,
         Paint()
-          ..color = Colors.black.withOpacity(0.18)
+          ..color = Colors.black.withValues(alpha: 0.18)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
       );
     }
@@ -224,7 +224,7 @@ class _MapCardState extends State<_MapCard> {
       radius: 3000,
       strokeColor: _green,
       strokeWidth: 1,
-      fillColor: _green.withOpacity(0.04),
+      fillColor: _green.withValues(alpha: 0.04),
     ),
   };
 
@@ -343,7 +343,7 @@ class _MapCardState extends State<_MapCard> {
     borderRadius: radius,
     boxShadow: [
       BoxShadow(
-        color: Colors.black.withOpacity(0.12),
+        color: Colors.black.withValues(alpha: 0.12),
         blurRadius: 8,
         offset: const Offset(0, 2),
       ),
@@ -404,7 +404,7 @@ class _NearbyRiderCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 20,
-              backgroundColor: accent.withOpacity(0.18),
+              backgroundColor: accent.withValues(alpha: 0.18),
               child: Icon(Icons.person, size: 20, color: accent),
             ),
             const SizedBox(width: 12),
@@ -545,7 +545,7 @@ class _RiderLocationModal extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundColor: accent.withOpacity(0.18),
+                      backgroundColor: accent.withValues(alpha: 0.18),
                       child: Icon(Icons.person, size: 24, color: accent),
                     ),
                     const SizedBox(width: 14),
