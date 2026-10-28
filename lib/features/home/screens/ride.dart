@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../controllers/ride_controller.dart';
 import '../widgets/live_sos_widget.dart';
 import '../widgets/live_telemetry_widget.dart';
@@ -37,6 +38,38 @@ class _RidePageState extends State<RidePage> {
 
   void _refresh() => setState(() {});
 
+  Widget _buildTelemetry() {
+    final hasData =
+        _controller.sessionDuration.isNotEmpty ||
+        _controller.distanceTravelled.isNotEmpty ||
+        _controller.clipsRecorded.isNotEmpty;
+    if (!hasData) {
+      return const _EmptyStateCard(message: 'No telemetry data available');
+    }
+    return LiveTelemetryWidget(
+      duration: _controller.sessionDuration,
+      distance: _controller.distanceTravelled,
+      clips: _controller.clipsRecorded,
+    );
+  }
+
+  Widget _buildNearbyHelp() {
+    final hasData =
+        _controller.nearbyHelpCount.isNotEmpty ||
+        _controller.nearbyHelpDistance.isNotEmpty ||
+        _controller.nearestRider.isNotEmpty ||
+        _controller.nearbyService.isNotEmpty;
+    if (!hasData) {
+      return const _EmptyStateCard(message: 'No nearby help requests');
+    }
+    return NearbyHelpCard(
+      count: _controller.nearbyHelpCount,
+      distance: _controller.nearbyHelpDistance,
+      nearestRider: _controller.nearestRider,
+      service: _controller.nearbyService,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,7 +86,7 @@ class _RidePageState extends State<RidePage> {
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     const _RideTitle(),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 20),
                     LiveSosWidget(
                       isSosActive: _controller.isSosActive,
                       onManualSos: _controller.isSosActive
@@ -63,30 +96,54 @@ class _RidePageState extends State<RidePage> {
                     const SizedBox(height: 14),
                     RideSessionWidget(
                       controller: _controller,
-                      onTap: _controller.isSessionLive
-                          ? _controller.endSession
-                          : _controller.startSession,
+                      onTap: _controller.endSession,
                     ),
                     const SizedBox(height: 21),
-                    LiveTelemetryWidget(
-                      duration: _controller.sessionDuration,
-                      distance: _controller.distanceTravelled,
-                      clips: _controller.clipsRecorded,
-                    ),
-                    const SizedBox(height: 21),
-                    NearbyHelpCard(
-                      count: _controller.nearbyHelpCount,
-                      distance: _controller.nearbyHelpDistance,
-                      nearestRider: _controller.nearestRider,
-                      service: _controller.nearbyService,
-                    ),
-                    const SizedBox(height: 23),
+                    _buildTelemetry(),
+                    const SizedBox(height: 20),
+                    _buildNearbyHelp(),
+                    const SizedBox(height: 20),
                     const _TodayLabel(),
                   ]),
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyStateCard extends StatelessWidget {
+  const _EmptyStateCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      elevation: 1,
+      shadowColor: const Color(0x14000000),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Color(0xFF95969C), size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Color(0xFF85858B),
+                  fontSize: 13,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -102,7 +159,7 @@ class _RideTitle extends StatelessWidget {
       'Ride',
       style: TextStyle(
         color: Colors.black,
-        fontSize: 27,
+        fontSize: 37,
         fontWeight: FontWeight.w700,
       ),
     );

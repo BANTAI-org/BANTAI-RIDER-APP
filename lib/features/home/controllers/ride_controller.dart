@@ -1,22 +1,46 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 class RideController extends ChangeNotifier {
   bool _isLoading = false;
   bool _isSosActive = false;
-  bool _isSessionLive = true;
+  bool _isSessionLive = false;
+  Duration _sessionRemaining = Duration.zero;
+  Timer? _sessionTimer;
+  Duration _selectedDuration = Duration.zero;
+
+  Duration get selectedDuration => _selectedDuration;
+
+  void setSelectedDuration(Duration duration) {
+    _selectedDuration = duration;
+    notifyListeners();
+    // TODO(backend): Persist selected duration preference.
+  }
 
   bool get isLoading => _isLoading;
   bool get isSosActive => _isSosActive;
   bool get isSessionLive => _isSessionLive;
-  String get sessionCountdown => '06:42:20';
+  String get sessionCountdown {
+    final hours = _sessionRemaining.inHours.toString().padLeft(2, '0');
+    final minutes = (_sessionRemaining.inMinutes % 60).toString().padLeft(
+      2,
+      '0',
+    );
+    final seconds = (_sessionRemaining.inSeconds % 60).toString().padLeft(
+      2,
+      '0',
+    );
+    return '$hours:$minutes:$seconds';
+  }
 
-  String get sessionDuration => '01:17:40';
-  String get distanceTravelled => '38.4 km';
-  String get clipsRecorded => '12';
-  String get nearbyHelpCount => '2';
-  String get nearbyHelpDistance => '3 km';
-  String get nearestRider => 'JOY-0871 down · C5';
-  String get nearbyService => 'Service Rd · 900 m';
+  String get sessionDuration => '';
+  String get distanceTravelled => '';
+  String get clipsRecorded => '';
+  String get nearbyHelpCount => '';
+  String get nearbyHelpDistance => '';
+  String get nearestRider => '';
+  String get nearbyService => '';
 
   Future<void> loadRideDashboard() async {
     _setLoading(true);
@@ -48,16 +72,40 @@ class RideController extends ChangeNotifier {
     // TODO(backend): Close the active SOS event on the server.
   }
 
-  Future<void> startSession() async {
+  Future<void> startSession({Duration? duration}) async {
     _isSessionLive = true;
+    _sessionRemaining = duration ?? _selectedDuration;
+    _startSessionTimer();
     notifyListeners();
     // TODO(backend): Start the rider session through the session endpoint.
   }
 
   Future<void> endSession() async {
     _isSessionLive = false;
+    _sessionTimer?.cancel();
     notifyListeners();
     // TODO(backend): End the rider session through the session endpoint.
+  }
+
+  void _startSessionTimer() {
+    _sessionTimer?.cancel();
+    if (!_isSessionLive) return;
+
+    _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_sessionRemaining <= Duration.zero) {
+        _sessionTimer?.cancel();
+        _isSessionLive = false;
+      } else {
+        _sessionRemaining -= const Duration(seconds: 1);
+      }
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _sessionTimer?.cancel();
+    super.dispose();
   }
 
   void _setLoading(bool value) {

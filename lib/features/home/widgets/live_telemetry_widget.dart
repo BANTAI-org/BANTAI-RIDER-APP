@@ -18,7 +18,7 @@ class LiveTelemetryWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionLabel('Live Telemetry'),
-        const SizedBox(height: 7),
+        const SizedBox(height: 9),
         Row(
           children: [
             Expanded(
@@ -92,13 +92,13 @@ class _TelemetryCard extends StatelessWidget {
       elevation: 2,
       shadowColor: const Color(0x18000000),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(11, 9, 8, 11),
+        padding: const EdgeInsets.fromLTRB(14, 12, 11, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(icon, color: const Color(0xFF85868C), size: 13),
+                Icon(icon, color: const Color(0xFF85868C), size: 16),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -106,7 +106,7 @@ class _TelemetryCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Color(0xFF85868C),
-                      fontSize: 10,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -119,7 +119,7 @@ class _TelemetryCard extends StatelessWidget {
               child: Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 20,
                   fontWeight: FontWeight.w700,
                 ),
               ),

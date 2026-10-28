@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -12,6 +14,18 @@ enum CommsMode { nearbyMap, radioChat }
 
 enum CommsConnectionState { disconnected, connecting, connected, reconnecting }
 
+/// Radius of the "nearby" ring in metres. Keep in sync with the map panel
+/// (the 3 km circle) and with the radius the backend uses.
+const double kNearbyRadiusMeters = 3000;
+
+/// Prints every raw socket event in debug builds so you can compare the real
+/// payloads with what [NearbyRider.fromJson] expects. Turn off when done.
+const bool kLogCommsEvents = true;
+
+/// Non-urgent riders that haven't been heard from for this long are dropped.
+/// Critical / needs-help entries are never dropped automatically.
+const Duration _kStaleAfter = Duration(minutes: 10);
+
 class NearbyRider {
   const NearbyRider({
     required this.id,
@@ -23,6 +37,8 @@ class NearbyRider {
     required this.isNeedHelp,
     this.latitude,
     this.longitude,
+    this.distanceMeters,
+    this.updatedAtTime,
     this.riderName,
     this.platform,
     this.respondersInfo,
@@ -33,16 +49,28 @@ class NearbyRider {
   });
 
   final String id;
+
+  /// Display label: 'Critical', 'Needs help' or '' (no badge).
   final String status;
+
+  /// Display text such as "900 m". Recomputed by the controller from real
+  /// coordinates whenever possible.
   final String distance;
   final String location;
+
+  /// Display text such as "2 min ago". Refreshed by the controller.
   final String updatedAt;
   final bool isCritical;
   final bool isNeedHelp;
   final double? latitude;
   final double? longitude;
 
-  // Additional fields required by target design
+  /// Raw distance in metres (used for filtering and sorting).
+  final double? distanceMeters;
+
+  /// Parsed timestamp of the last update, when the backend sends one.
+  final DateTime? updatedAtTime;
+
   final String? riderName;
   final String? platform;
   final String? respondersInfo;
@@ -60,6 +88,8 @@ class NearbyRider {
     bool? isNeedHelp,
     double? latitude,
     double? longitude,
+    double? distanceMeters,
+    DateTime? updatedAtTime,
     String? riderName,
     String? platform,
     String? respondersInfo,
@@ -78,6 +108,8 @@ class NearbyRider {
       isNeedHelp: isNeedHelp ?? this.isNeedHelp,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      updatedAtTime: updatedAtTime ?? this.updatedAtTime,
       riderName: riderName ?? this.riderName,
       platform: platform ?? this.platform,
       respondersInfo: respondersInfo ?? this.respondersInfo,
@@ -89,25 +121,37 @@ class NearbyRider {
   }
 
   factory NearbyRider.fromJson(Map<String, dynamic> json) {
-    final latitude = _number(json['latitude'] ?? json['lat']);
-    final longitude = _number(json['longitude'] ?? json['lng']);
-    final distance = _number(json['distance_meters'] ?? json['distance']);
-    final status = _string(json['status'] ?? json['alert_type']);
+    final (latitude, longitude) = _coords(json);
+    final distanceMeters = _number(json['distance_meters'] ?? json['distance']);
+    final (critical, needHelp) = _flags(json);
+    final rawTime =
+        json['updated_at'] ??
+        json['updatedAt'] ??
+        json['time'] ??
+        json['timestamp'] ??
+        json['created_at'];
+
+    final textDistance =
+        json['distance'] is String && _number(json['distance']) == null
+        ? _string(json['distance'])
+        : _string(json['distance_label']);
 
     return NearbyRider(
       id: _string(json['id'] ?? json['rider_id'] ?? json['riderId']),
-      status: status,
-      distance: distance == null
-          ? _string(json['distance_label'])
-          : _distanceLabel(distance),
-      location: _string(json['location'] ?? json['address']),
-      updatedAt: _string(
-        json['updated_at'] ?? json['updatedAt'] ?? json['time'],
-      ),
-      isCritical:
-          json['is_critical'] == true || status.toLowerCase() == 'critical',
-      isNeedHelp:
-          json['needs_help'] == true || status.toLowerCase() == 'needs help',
+      status: critical
+          ? 'Critical'
+          : needHelp
+          ? 'Needs help'
+          : '',
+      distance: distanceMeters == null
+          ? textDistance
+          : distanceLabel(distanceMeters),
+      distanceMeters: distanceMeters,
+      location: _locationText(json),
+      updatedAt: _string(rawTime),
+      updatedAtTime: _time(rawTime),
+      isCritical: critical,
+      isNeedHelp: needHelp,
       latitude: latitude,
       longitude: longitude,
       riderName: json['rider_name']?.toString() ?? json['name']?.toString(),
@@ -120,13 +164,113 @@ class NearbyRider {
     );
   }
 
+  /// Keys that carry status information. When none of them is present in an
+  /// update, the rider's existing status must be kept.
+  static const statusKeys = [
+    'status',
+    'alert_type',
+    'is_critical',
+    'needs_help',
+    'need_help',
+    'severity',
+    'threat_level',
+  ];
+
+  static String rawStatus(Map<String, dynamic> json) =>
+      _string(json['status'] ?? json['alert_type']);
+
+  static String normalizeStatus(String s) =>
+      s.toLowerCase().replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+
+  static (bool, bool) _flags(Map<String, dynamic> json) {
+    final status = normalizeStatus(rawStatus(json));
+    final severity = normalizeStatus(
+      _string(json['severity'] ?? json['threat_level']),
+    );
+    final critical =
+        json['is_critical'] == true ||
+        status == 'critical' ||
+        severity == 'critical';
+    final needHelp =
+        json['needs_help'] == true ||
+        json['need_help'] == true ||
+        status == 'needs help' ||
+        status == 'need help' ||
+        status == 'help needed';
+    return (critical, needHelp);
+  }
+
+  /// Reads coordinates from flat keys or from a nested location object.
+  static (double?, double?) _coords(Map<String, dynamic> json) {
+    double? lat = _number(json['latitude'] ?? json['lat']);
+    double? lng = _number(json['longitude'] ?? json['lng'] ?? json['lon']);
+    if (!_validCoord(lat, lng)) {
+      lat = null;
+      lng = null;
+      for (final key in const [
+        'location',
+        'position',
+        'coords',
+        'coordinates',
+      ]) {
+        final v = json[key];
+        if (v is Map) {
+          final la = _number(v['latitude'] ?? v['lat']);
+          final ln = _number(v['longitude'] ?? v['lng'] ?? v['lon']);
+          if (_validCoord(la, ln)) {
+            lat = la;
+            lng = ln;
+            break;
+          }
+        }
+      }
+    }
+    return (lat, lng);
+  }
+
+  static bool _validCoord(double? lat, double? lng) =>
+      lat != null &&
+      lng != null &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180 &&
+      !(lat == 0 && lng == 0);
+
+  static String _locationText(Map<String, dynamic> json) {
+    final address = json['address'] ?? json['location_label'];
+    if (address != null) return _string(address);
+    final loc = json['location'];
+    if (loc is String) return loc;
+    if (loc is Map) {
+      return _string(loc['address'] ?? loc['label'] ?? loc['name']);
+    }
+    return '';
+  }
+
+  static DateTime? _time(Object? value) {
+    if (value is num) {
+      final n = value.toInt();
+      // Treat small numbers as seconds, large ones as milliseconds.
+      return DateTime.fromMillisecondsSinceEpoch(
+        n < 100000000000 ? n * 1000 : n,
+      );
+    }
+    if (value is String) {
+      final asNumber = num.tryParse(value);
+      if (asNumber != null) return _time(asNumber);
+      return DateTime.tryParse(value);
+    }
+    return null;
+  }
+
   static String _string(Object? value) => value?.toString() ?? '';
 
   static double? _number(Object? value) => value is num
       ? value.toDouble()
       : double.tryParse(value?.toString() ?? '');
 
-  static String _distanceLabel(double meters) => meters < 1000
+  static String distanceLabel(double meters) => meters < 1000
       ? '${meters.round()} m'
       : '${(meters / 1000).toStringAsFixed(1)} km';
 }
@@ -137,10 +281,19 @@ class CommsController extends ChangeNotifier {
 
   final AuthTokenStorage _tokenStorage;
   final Map<String, NearbyRider> _riders = {};
+  final Map<String, DateTime> _lastSeen = {};
+  List<NearbyRider> _visible = const [];
+
   io.Socket? _gpsSocket;
   io.Socket? _incidentsSocket;
+  bool _gpsUp = false;
+  bool _incidentsUp = false;
+
   Timer? _reconnectTimer;
+  Timer? _ticker;
+  StreamSubscription<Position>? _positionSub;
   bool _disposed = false;
+  bool _initialized = false;
   int _reconnectAttempt = 0;
 
   CommsMode _mode = CommsMode.nearbyMap;
@@ -157,8 +310,13 @@ class CommsController extends ChangeNotifier {
   String? get connectionError => _connectionError;
   CommsConnectionState get connectionState => _connectionState;
   bool get isConnected => _connectionState == CommsConnectionState.connected;
-  List<NearbyRider> get nearbyRiders => _riders.values.toList(growable: false);
 
+  /// Riders and incidents inside [kNearbyRadiusMeters], most urgent first
+  /// (critical, then needs help, then the rest), nearest first within a group.
+  /// Distance and "x min ago" labels are computed here from real data.
+  List<NearbyRider> get nearbyRiders => _visible;
+
+  // Kept for compatibility; the map panel builds its own markers and circle.
   Set<Marker> get riderMarkers => {
     if (_position != null)
       Marker(
@@ -186,7 +344,7 @@ class CommsController extends ChangeNotifier {
       Circle(
         circleId: const CircleId('nearby-coverage'),
         center: LatLng(_position!.latitude, _position!.longitude),
-        radius: 3000,
+        radius: kNearbyRadiusMeters,
         fillColor: const Color(0x1434C759),
         strokeColor: const Color(0x9934C759),
         strokeWidth: 2,
@@ -194,152 +352,25 @@ class CommsController extends ChangeNotifier {
   };
 
   Future<void> initialize() async {
-    _loadMockData(); // Pre-populate mock riders to match design preview
+    if (_initialized) return;
+    _initialized = true;
+    // Refreshes "x min ago" labels and drops stale non-urgent riders.
+    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+      _pruneStale();
+      _notify();
+    });
     await Future.wait([refreshLocation(), connect()]);
-  }
-
-  void _loadMockData() {
-    final mockRiders = [
-      const NearbyRider(
-        id: 'JOY-0871',
-        status: 'Critical',
-        distance: '900 m',
-        location: 'C5 Service Rd. cor. Kalayaan Ave.',
-        updatedAt: '2 min ago',
-        isCritical: true,
-        isNeedHelp: false,
-        latitude: 14.5580,
-        longitude: 121.0560,
-        riderName: 'Emman',
-        platform: 'JoyRide',
-        respondersSummary: '4 riders responding',
-        respondersInfo: 'MDRRMO Ambulance • ETA 3 min',
-        riderInfo: 'Plate NBH 8821 • Blood type B+',
-        crashDetectionText: 'Side impact · rider down, no movement for 40 s',
-        helpNeededText: 'Passenger conscious. Rider pinned under bike - needs 2 people to lift.',
-      ),
-      const NearbyRider(
-        id: 'ANG-1190',
-        status: 'Needs help',
-        distance: '1.7 km',
-        location: 'Shaw Blvd. near Kapitolyo flyover',
-        updatedAt: '6 min ago',
-        isCritical: false,
-        isNeedHelp: true,
-        latitude: 14.5720,
-        longitude: 121.0620,
-        riderName: 'Alex',
-        platform: 'Angkas',
-        respondersSummary: '2 riders responding',
-        respondersInfo: 'Nearby volunteers',
-        riderInfo: 'Plate XYZ 1234 • Blood type O+',
-        helpNeededText:
-            'Flat tire near flyover, needs portable pump or spare tube.',
-      ),
-      const NearbyRider(
-        id: 'MOV-3390',
-        status: '',
-        distance: '2.6 km',
-        location: 'Ortigas Ave. cor. Meralco Ave.',
-        updatedAt: '14 min ago',
-        isCritical: false,
-        isNeedHelp: false,
-        latitude: 14.5880,
-        longitude: 121.0680,
-        riderName: 'Mark',
-        platform: 'MoveIt',
-        respondersSummary: '1 rider responding',
-      ),
-    ];
-
-    for (final rider in mockRiders) {
-      _riders[rider.id] = rider;
-    }
-    notifyListeners();
   }
 
   void selectMode(CommsMode mode) {
     if (_mode == mode) return;
     _mode = mode;
-    notifyListeners();
+    _notify();
   }
 
-  Future<void> connect() async {
-    if (_disposed ||
-        _connectionState == CommsConnectionState.connecting ||
-        _connectionState == CommsConnectionState.connected) {
-      return;
-    }
-
-    _reconnectTimer?.cancel();
-    _setConnectionState(
-      _reconnectAttempt == 0
-          ? CommsConnectionState.connecting
-          : CommsConnectionState.reconnecting,
-    );
-
-    try {
-      final token = await _tokenStorage.readAccessToken();
-      if (token == null || token.isEmpty) {
-        throw const CommsConnectionException(
-          'You must be signed in to receive nearby rider updates.',
-        );
-      }
-
-      final options = io.OptionBuilder()
-          .setTransports(['websocket'])
-          .disableAutoConnect()
-          .setAuth({'token': token})
-          .build();
-
-      final gpsSocket = io.io(
-        '${NetworkSettings.commsSocketBaseUrl}/gps',
-        options,
-      );
-      final incidentsSocket = io.io(
-        '${NetworkSettings.commsSocketBaseUrl}/incidents',
-        options,
-      );
-
-      if (_disposed) {
-        gpsSocket.dispose();
-        incidentsSocket.dispose();
-        return;
-      }
-
-      _gpsSocket = gpsSocket;
-      _incidentsSocket = incidentsSocket;
-      gpsSocket.on('connect', (_) => _handleSocketConnected());
-      incidentsSocket.on('connect', (_) => _handleSocketConnected());
-      gpsSocket.on('gps-update', _handleSocketMessage);
-
-      for (final event in _incidentEvents) {
-        incidentsSocket.on(event, _handleSocketMessage);
-      }
-
-      gpsSocket.on('connect_error', _handleSocketError);
-      incidentsSocket.on('connect_error', _handleSocketError);
-      gpsSocket.on('disconnect', _handleSocketClosed);
-      incidentsSocket.on('disconnect', _handleSocketClosed);
-
-      gpsSocket.connect();
-      incidentsSocket.connect();
-    } on CommsConnectionException catch (error) {
-      _handleConnectionFailure(error.message);
-    } on FormatException catch (error) {
-      _handleConnectionFailure(error.message);
-    }
-  }
-
-  Future<void> disconnect() async {
-    _reconnectTimer?.cancel();
-    _reconnectAttempt = 0;
-    _gpsSocket?.dispose();
-    _incidentsSocket?.dispose();
-    _gpsSocket = null;
-    _incidentsSocket = null;
-    if (!_disposed) _setConnectionState(CommsConnectionState.disconnected);
-  }
+  // ---------------------------------------------------------------------
+  // Sockets
+  // ---------------------------------------------------------------------
 
   static const _incidentEvents = [
     'incident.created',
@@ -353,29 +384,199 @@ class CommsController extends ChangeNotifier {
     'report.status_changed',
   ];
 
-  void _handleSocketConnected() {
-    _reconnectAttempt = 0;
-    _connectionError = null;
-    _setConnectionState(CommsConnectionState.connected);
-  }
+  Future<void> connect() async {
+    if (_disposed ||
+        _connectionState == CommsConnectionState.connecting ||
+        _connectionState == CommsConnectionState.reconnecting ||
+        _connectionState == CommsConnectionState.connected) {
+      return;
+    }
 
-  void _handleSocketMessage(dynamic message) {
+    _reconnectTimer?.cancel();
+    _setConnectionState(
+      _reconnectAttempt == 0
+          ? CommsConnectionState.connecting
+          : CommsConnectionState.reconnecting,
+    );
+
     try {
-      if (message is! Map) {
-        throw const FormatException('The Comms event must be a JSON object.');
+      final token = await _tokenStorage.readAccessToken();
+      if (_disposed) return;
+      if (token == null || token.isEmpty) {
+        throw const CommsConnectionException(
+          'You must be signed in to receive nearby rider updates.',
+        );
       }
-      _applyEvent(Map<String, dynamic>.from(message));
+
+      // Never leave an old pair of sockets (and their listeners) alive.
+      _teardownSockets();
+
+      final options = io.OptionBuilder()
+          .setTransports(['websocket'])
+          .enableForceNew() // one separate connection per namespace
+          .disableAutoConnect()
+          .setAuth({'token': token})
+          .build();
+
+      final gps = io.io('${NetworkSettings.commsSocketBaseUrl}/gps', options);
+      final incidents = io.io(
+        '${NetworkSettings.commsSocketBaseUrl}/incidents',
+        options,
+      );
+      _gpsSocket = gps;
+      _incidentsSocket = incidents;
+
+      gps.on('connect', (_) => _handleSocketConnected(gps));
+      incidents.on('connect', (_) => _handleSocketConnected(incidents));
+
+      // Pass the Socket.IO event name along: the payload itself usually does
+      // not say which event it belongs to.
+      gps.on('gps-update', (data) => _handleSocketMessage('gps-update', data));
+      for (final event in _incidentEvents) {
+        incidents.on(event, (data) => _handleSocketMessage(event, data));
+      }
+
+      gps.on('connect_error', (e) => _handleSocketClosed(gps, e));
+      incidents.on('connect_error', (e) => _handleSocketClosed(incidents, e));
+      gps.on('disconnect', (e) => _handleSocketClosed(gps, e));
+      incidents.on('disconnect', (e) => _handleSocketClosed(incidents, e));
+
+      gps.connect();
+      incidents.connect();
+    } on CommsConnectionException catch (error) {
+      _handleConnectionFailure(error.message);
     } on FormatException catch (error) {
-      _connectionError = error.message;
-      notifyListeners();
+      _handleConnectionFailure(error.message);
+    } catch (error) {
+      _handleConnectionFailure(error.toString());
     }
   }
 
-  void _applyEvent(Map<String, dynamic> event) {
-    final type = event['type']?.toString() ?? event['event']?.toString();
-    final payload = event['data'] is Map<String, dynamic>
-        ? event['data'] as Map<String, dynamic>
-        : event;
+  Future<void> disconnect() async {
+    _reconnectTimer?.cancel();
+    _reconnectAttempt = 0;
+    _teardownSockets();
+    if (!_disposed) _setConnectionState(CommsConnectionState.disconnected);
+  }
+
+  void _teardownSockets() {
+    final gps = _gpsSocket;
+    final incidents = _incidentsSocket;
+    // Clear the references first so late events from these sockets are ignored.
+    _gpsSocket = null;
+    _incidentsSocket = null;
+    _gpsUp = false;
+    _incidentsUp = false;
+    gps?.dispose();
+    incidents?.dispose();
+  }
+
+  bool _isCurrent(io.Socket socket) =>
+      identical(socket, _gpsSocket) || identical(socket, _incidentsSocket);
+
+  void _handleSocketConnected(io.Socket socket) {
+    if (_disposed || !_isCurrent(socket)) return;
+    if (identical(socket, _gpsSocket)) {
+      _gpsUp = true;
+    } else {
+      _incidentsUp = true;
+    }
+    if (_gpsUp && _incidentsUp) {
+      _reconnectAttempt = 0;
+      _connectionError = null;
+      _setConnectionState(CommsConnectionState.connected);
+      // The server needs our position to know who is "nearby".
+      _sendLocation();
+    }
+  }
+
+  void _handleSocketClosed(io.Socket socket, dynamic reason) {
+    if (_disposed || !_isCurrent(socket)) return;
+    _handleConnectionFailure(
+      reason?.toString() ?? 'The Comms connection was closed.',
+    );
+  }
+
+  void _handleConnectionFailure(String message) {
+    if (_disposed) return;
+    _teardownSockets();
+    _connectionError = message;
+    _connectionState = CommsConnectionState.disconnected;
+    _notify();
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed || _reconnectTimer?.isActive == true) return;
+    final seconds = 1 << _reconnectAttempt.clamp(0, 5);
+    _reconnectAttempt++;
+    _reconnectTimer = Timer(Duration(seconds: seconds), connect);
+  }
+
+  void _setConnectionState(CommsConnectionState state) {
+    _connectionState = state;
+    _notify();
+  }
+
+  // ---------------------------------------------------------------------
+  // Incoming events
+  // ---------------------------------------------------------------------
+
+  void _handleSocketMessage(String eventName, dynamic message) {
+    if (kLogCommsEvents && kDebugMode) {
+      debugPrint('[comms] $eventName: $message');
+    }
+    try {
+      final map = _asMap(message);
+      if (map == null) {
+        throw const FormatException('The Comms event must be a JSON object.');
+      }
+      _applyEvent(eventName, map);
+    } on FormatException catch (error) {
+      _connectionError = error.message;
+      _notify();
+    }
+  }
+
+  static Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map) {
+      return value.map((k, v) => MapEntry(k.toString(), v));
+    }
+    if (value is List && value.isNotEmpty) return _asMap(value.first);
+    if (value is String) {
+      try {
+        return _asMap(jsonDecode(value));
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  static const _upsertTypes = {'rider_upsert', 'rider_update', 'nearby_rider'};
+
+  /// Incident statuses that mean "this is over" and should leave the map.
+  static const _terminalStatuses = {
+    'resolved',
+    'closed',
+    'cancelled',
+    'canceled',
+    'completed',
+    'expired',
+    'false alarm',
+    'stood down',
+    'stand down',
+  };
+
+  bool _isUpsertType(String type) =>
+      _upsertTypes.contains(type) ||
+      type == 'gps-update' ||
+      type.startsWith('incident.') ||
+      type.startsWith('report.');
+
+  void _applyEvent(String eventName, Map<String, dynamic> event) {
+    final type = (event['type'] ?? event['event'] ?? eventName).toString();
+    final payload = _asMap(event['data']) ?? event;
 
     switch (type) {
       case 'nearby_snapshot':
@@ -384,97 +585,162 @@ class CommsController extends ChangeNotifier {
         if (riders is! List) {
           throw const FormatException('The rider snapshot has no riders list.');
         }
-        _riders
-          ..clear()
-          ..addEntries(
-            riders.whereType<Map<String, dynamic>>().map((json) {
-              final rider = NearbyRider.fromJson(json);
-              return MapEntry(rider.id, rider);
-            }),
-          );
-      case 'rider_upsert':
-      case 'rider_update':
-      case 'nearby_rider':
-        final rider = NearbyRider.fromJson(
-          payload['rider'] is Map<String, dynamic>
-              ? payload['rider'] as Map<String, dynamic>
-              : payload,
-        );
-        if (rider.id.isEmpty) {
-          throw const FormatException('A rider update has no rider ID.');
+        _riders.clear();
+        _lastSeen.clear();
+        for (final item in riders) {
+          final json = _asMap(item);
+          if (json != null) _upsert(json);
         }
-        _riders.update(
-          rider.id,
-          (existing) => existing.copyWith(
-            status: rider.status,
-            distance: rider.distance,
-            location: rider.location,
-            updatedAt: rider.updatedAt,
-            isCritical: rider.isCritical,
-            isNeedHelp: rider.isNeedHelp,
-            latitude: rider.latitude,
-            longitude: rider.longitude,
-            riderName: rider.riderName,
-            platform: rider.platform,
-            respondersInfo: rider.respondersInfo,
-            riderInfo: rider.riderInfo,
-            respondersSummary: rider.respondersSummary,
-            helpNeededText: rider.helpNeededText,
-            crashDetectionText: rider.crashDetectionText,
-          ),
-          ifAbsent: () => rider,
-        );
       case 'rider_removed':
       case 'nearby_rider_removed':
-        final id = payload['rider_id']?.toString() ?? payload['id']?.toString();
-        if (id != null) _riders.remove(id);
+        final id = (payload['rider_id'] ?? payload['id'])?.toString();
+        if (id != null) {
+          _riders.remove(id);
+          _lastSeen.remove(id);
+        }
       case 'error':
         _connectionError =
             payload['message']?.toString() ?? 'Comms server error.';
       default:
-        return;
+        if (!_isUpsertType(type)) return;
+        final rider = _asMap(payload['rider']);
+        final incident = _asMap(payload['incident']);
+        _upsert({...payload, ...?incident, ...?rider});
     }
-    notifyListeners();
+    _notify();
   }
 
-  void _handleSocketError(dynamic error) {
-    _handleConnectionFailure(
-      error?.toString() ?? 'Socket.IO connection failed.',
+  /// Adds or updates one rider. Fields missing from a partial update keep
+  /// their previous values instead of being wiped.
+  void _upsert(Map<String, dynamic> json) {
+    final incoming = NearbyRider.fromJson(json);
+    if (incoming.id.isEmpty) {
+      throw const FormatException('A rider update has no rider ID.');
+    }
+
+    final statusSent = NearbyRider.statusKeys.any(json.containsKey);
+    if (statusSent &&
+        _terminalStatuses.contains(
+          NearbyRider.normalizeStatus(NearbyRider.rawStatus(json)),
+        )) {
+      _riders.remove(incoming.id);
+      _lastSeen.remove(incoming.id);
+      return;
+    }
+
+    _lastSeen[incoming.id] = DateTime.now();
+    final existing = _riders[incoming.id];
+    if (existing == null) {
+      _riders[incoming.id] = incoming;
+      return;
+    }
+
+    String? text(String value) => value.isEmpty ? null : value;
+    _riders[incoming.id] = existing.copyWith(
+      status: statusSent ? incoming.status : null,
+      isCritical: statusSent ? incoming.isCritical : null,
+      isNeedHelp: statusSent ? incoming.isNeedHelp : null,
+      distance: text(incoming.distance),
+      distanceMeters: incoming.distanceMeters,
+      location: text(incoming.location),
+      updatedAt: text(incoming.updatedAt),
+      updatedAtTime: incoming.updatedAtTime,
+      latitude: incoming.latitude,
+      longitude: incoming.longitude,
+      riderName: incoming.riderName,
+      platform: incoming.platform,
+      respondersInfo: incoming.respondersInfo,
+      riderInfo: incoming.riderInfo,
+      respondersSummary: incoming.respondersSummary,
+      helpNeededText: incoming.helpNeededText,
+      crashDetectionText: incoming.crashDetectionText,
     );
   }
 
-  void _handleSocketClosed(dynamic _) {
-    _gpsSocket = null;
-    _incidentsSocket = null;
-    if (!_disposed) {
-      _handleConnectionFailure('The Comms connection was closed.');
-    }
+  void _pruneStale() {
+    final cutoff = DateTime.now().subtract(_kStaleAfter);
+    _riders.removeWhere((id, rider) {
+      if (rider.isCritical || rider.isNeedHelp) return false;
+      final seen = _lastSeen[id];
+      return seen != null && seen.isBefore(cutoff);
+    });
+    _lastSeen.removeWhere((id, _) => !_riders.containsKey(id));
   }
 
-  void _handleConnectionFailure(String message) {
+  // ---------------------------------------------------------------------
+  // Visible list (filter, distance, sort)
+  // ---------------------------------------------------------------------
+
+  void _notify() {
     if (_disposed) return;
-    _connectionError = message;
-    _connectionState = CommsConnectionState.disconnected;
-    notifyListeners();
-    _scheduleReconnect();
-  }
-
-  void _scheduleReconnect() {
-    if (_disposed || _reconnectTimer?.isActive == true) return;
-    final seconds = (1 << _reconnectAttempt.clamp(0, 5)).toInt();
-    _reconnectAttempt++;
-    _reconnectTimer = Timer(Duration(seconds: seconds), connect);
-  }
-
-  void _setConnectionState(CommsConnectionState state) {
-    _connectionState = state;
+    _visible = _computeVisible();
     notifyListeners();
   }
+
+  List<NearbyRider> _computeVisible() {
+    final me = _position;
+    final entries = <({NearbyRider rider, double? meters})>[];
+
+    for (final rider in _riders.values) {
+      double? meters = rider.distanceMeters;
+      if (me != null && rider.latitude != null && rider.longitude != null) {
+        meters = Geolocator.distanceBetween(
+          me.latitude,
+          me.longitude,
+          rider.latitude!,
+          rider.longitude!,
+        );
+      }
+      // Outside the ring: hide. Unknown distance: keep (better to show an
+      // incident than to hide one).
+      if (meters != null && meters > kNearbyRadiusMeters) continue;
+
+      entries.add((
+        rider: rider.copyWith(
+          distance: meters == null ? null : NearbyRider.distanceLabel(meters),
+          distanceMeters: meters,
+          updatedAt: _updatedLabel(rider),
+        ),
+        meters: meters,
+      ));
+    }
+
+    int rank(NearbyRider r) => r.isCritical
+        ? 0
+        : r.isNeedHelp
+        ? 1
+        : 2;
+    entries.sort((a, b) {
+      final byRank = rank(a.rider).compareTo(rank(b.rider));
+      if (byRank != 0) return byRank;
+      return (a.meters ?? double.infinity).compareTo(
+        b.meters ?? double.infinity,
+      );
+    });
+
+    return List.unmodifiable(entries.map((e) => e.rider));
+  }
+
+  String _updatedLabel(NearbyRider rider) {
+    final time =
+        rider.updatedAtTime ??
+        (rider.updatedAt.isEmpty ? _lastSeen[rider.id] : null);
+    if (time == null) return rider.updatedAt;
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) return '${diff.inHours} hr ago';
+    return '${diff.inDays} d ago';
+  }
+
+  // ---------------------------------------------------------------------
+  // Location
+  // ---------------------------------------------------------------------
 
   Future<void> refreshLocation() async {
     _isLoadingLocation = true;
     _locationError = null;
-    notifyListeners();
+    _notify();
 
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
@@ -494,7 +760,13 @@ class CommsController extends ChangeNotifier {
           'Location permission is permanently denied. Enable it in Settings.',
         );
       }
-      _position = await Geolocator.getCurrentPosition();
+      _position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      _startPositionStream();
       _sendLocation();
     } on LocationServiceDisabledException {
       _locationError = 'Turn on location services to center the map.';
@@ -502,16 +774,36 @@ class CommsController extends ChangeNotifier {
       _locationError = error.message;
     } on TimeoutException {
       _locationError = 'Location lookup timed out. Try again.';
+    } catch (_) {
+      _locationError = 'Could not get your location. Try again.';
     } finally {
       _isLoadingLocation = false;
-      notifyListeners();
+      _notify();
     }
+  }
+
+  /// Keeps our position (and the server's idea of "nearby") up to date as the
+  /// rider moves.
+  void _startPositionStream() {
+    if (_positionSub != null) return;
+    _positionSub =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 25, // metres
+          ),
+        ).listen((position) {
+          _position = position;
+          _sendLocation();
+          _notify();
+        }, onError: (_) {});
   }
 
   void _sendLocation() {
     final position = _position;
-    if (!isConnected || position == null) return;
-    _gpsSocket?.emit('location_update', {
+    final socket = _gpsSocket;
+    if (position == null || socket == null || !_gpsUp) return;
+    socket.emit('location_update', {
       'latitude': position.latitude,
       'longitude': position.longitude,
       'accuracy': position.accuracy,
@@ -522,10 +814,10 @@ class CommsController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _reconnectTimer?.cancel();
-    _gpsSocket?.dispose();
-    _incidentsSocket?.dispose();
-    _gpsSocket = null;
-    _incidentsSocket = null;
+    _ticker?.cancel();
+    _positionSub?.cancel();
+    _positionSub = null;
+    _teardownSockets();
     super.dispose();
   }
 }

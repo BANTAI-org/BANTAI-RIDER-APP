@@ -19,32 +19,32 @@ class ProfileController extends ChangeNotifier {
   List<EmergencyContact> _emergencyContacts = [];
 
   String get fullName {
-    if (_riderProfile == null) return 'Kirby Gabayno';
+    if (_riderProfile == null) return '';
     final parts = [
       _riderProfile?.firstName,
       _riderProfile?.middleName,
-      _riderProfile?.lastName
+      _riderProfile?.lastName,
     ].where((e) => e != null && e.isNotEmpty);
     return parts.isNotEmpty ? parts.join(' ') : '';
   }
 
-  String get email => _riderProfile?.emailAddress ?? 'johndoe@gmail.com';
-  String get phoneNumber => _riderProfile?.phoneNumber ?? '+63 900 000 0000';
-  String get accountId => 'ADBC-1234';
-  String get serviceProvider =>
-      _riderProfile?.serviceProvider ?? 'Provider';
-  String get faceIdStatus => 'Face ID';
+  String get email => _riderProfile?.emailAddress ?? '';
+  String get phoneNumber => _riderProfile?.phoneNumber ?? '';
+  String get accountId => '';
+  String get serviceProvider => _riderProfile?.serviceProvider ?? '';
+  String get faceIdStatus => '';
 
   String get vehicleDetails {
     if (_riderProfile == null) {
-      return 'Personal, license Motor\n160, medical';
+      return '';
     }
     final parts = <String>[];
     if (_riderProfile?.motorcycleMake != null ||
         _riderProfile?.motorcycleModel != null) {
       parts.add(
-          '${_riderProfile?.motorcycleMake ?? ''} ${_riderProfile?.motorcycleModel ?? ''}'
-              .trim());
+        '${_riderProfile?.motorcycleMake ?? ''} ${_riderProfile?.motorcycleModel ?? ''}'
+            .trim(),
+      );
     }
     if (_riderProfile?.licenseNumber != null) parts.add('license');
     if (_riderProfile?.bloodType != null) parts.add('medical');
@@ -71,15 +71,23 @@ class ProfileController extends ChangeNotifier {
     _setLoading(true);
     try {
       // Fetch all profile data from backend
-      final results = await Future.wait([
-        _profileRepository.getRiderProfile().catchError((_) => null),
-        _profileRepository.getSosBroadcast().catchError((_) => null),
-        _profileRepository.getEmergencyContacts().catchError((_) => <EmergencyContact>[]),
-      ]);
+      RiderProfile? riderProfile;
+      SosBroadcast? sosBroadcast;
+      List<EmergencyContact> emergencyContacts = [];
 
-      _riderProfile = results[0] as RiderProfile?;
-      _sosBroadcast = results[1] as SosBroadcast?;
-      _emergencyContacts = results[2] as List<EmergencyContact>;
+      try {
+        riderProfile = await _profileRepository.getRiderProfile();
+      } catch (_) {}
+      try {
+        sosBroadcast = await _profileRepository.getSosBroadcast();
+      } catch (_) {}
+      try {
+        emergencyContacts = await _profileRepository.getEmergencyContacts();
+      } catch (_) {}
+
+      _riderProfile = riderProfile;
+      _sosBroadcast = sosBroadcast;
+      _emergencyContacts = emergencyContacts;
       notifyListeners();
     } catch (e) {
       // Handle error - for now just set empty data
@@ -103,15 +111,21 @@ class ProfileController extends ChangeNotifier {
     }
   }
 
-  Future<void> updateEmergencyContact(int index, EmergencyContact contact) async {
+  Future<void> updateEmergencyContact(
+    int index,
+    EmergencyContact contact,
+  ) async {
     if (index < 0 || index >= _emergencyContacts.length) return;
-    
+
     final existingContact = _emergencyContacts[index];
     if (existingContact.id == null) return;
 
     _setLoading(true);
     try {
-      await _profileRepository.updateEmergencyContact(existingContact.id!, contact);
+      await _profileRepository.updateEmergencyContact(
+        existingContact.id!,
+        contact,
+      );
       _emergencyContacts[index] = contact;
       notifyListeners();
     } finally {
@@ -121,7 +135,7 @@ class ProfileController extends ChangeNotifier {
 
   Future<void> removeEmergencyContact(int index) async {
     if (index < 0 || index >= _emergencyContacts.length) return;
-    
+
     final contact = _emergencyContacts[index];
     if (contact.id == null) return;
 

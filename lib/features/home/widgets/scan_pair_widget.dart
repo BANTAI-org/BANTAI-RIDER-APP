@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../controllers/scan_controller.dart';
+import 'provisioning_dialog.dart';
+
 class ScanPairWidget extends StatelessWidget {
   const ScanPairWidget({
     super.key,
+    required this.controller,
     required this.isPairing,
     required this.pairingError,
     required this.onQrDetected,
@@ -12,6 +16,7 @@ class ScanPairWidget extends StatelessWidget {
     required this.onReportLostDevice,
   });
 
+  final ScanController controller;
   final bool isPairing;
   final String? pairingError;
   final ValueChanged<String> onQrDetected;
@@ -29,6 +34,7 @@ class ScanPairWidget extends StatelessWidget {
           child: Column(
             children: [
               _QrScannerFrame(
+                controller: controller,
                 isPairing: isPairing,
                 pairingError: pairingError,
                 onQrDetected: onQrDetected,
@@ -56,13 +62,6 @@ class ScanPairWidget extends StatelessWidget {
           color: const Color(0xFFE51D24),
           onTap: onUnpairDevice,
         ),
-        _PairAction(
-          icon: Icons.flag_outlined,
-          title: 'Report lost or stolen device',
-          subtitle: 'Locks the unit and alerts your operator',
-          color: const Color(0xFFE51D24),
-          onTap: onReportLostDevice,
-        ),
       ],
     );
   }
@@ -70,11 +69,13 @@ class ScanPairWidget extends StatelessWidget {
 
 class _QrScannerFrame extends StatefulWidget {
   const _QrScannerFrame({
+    required this.controller,
     required this.isPairing,
     required this.pairingError,
     required this.onQrDetected,
   });
 
+  final ScanController controller;
   final bool isPairing;
   final String? pairingError;
   final ValueChanged<String> onQrDetected;
@@ -85,6 +86,7 @@ class _QrScannerFrame extends StatefulWidget {
 
 class _QrScannerFrameState extends State<_QrScannerFrame> {
   late final MobileScannerController _scannerController;
+  bool _dialogShown = false;
 
   @override
   void initState() {
@@ -93,12 +95,44 @@ class _QrScannerFrameState extends State<_QrScannerFrame> {
       detectionSpeed: DetectionSpeed.noDuplicates,
       facing: CameraFacing.back,
     );
+    widget.controller.addListener(_onProvisioningChange);
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onProvisioningChange);
     _scannerController.dispose();
     super.dispose();
+  }
+
+  void _onProvisioningChange() {
+    final step = widget.controller.provisioningStep;
+    final identity = widget.controller.scannedPiIdentity;
+
+    debugPrint(
+      '[BANTAI] _onProvisioningChange: step=$step, identity=${identity?.deviceId}, _dialogShown=$_dialogShown, mounted=$mounted',
+    );
+
+    if (identity != null &&
+        (step == ProvisioningStep.awaitingDetails ||
+            step == ProvisioningStep.connectingBle) &&
+        !_dialogShown &&
+        mounted) {
+      debugPrint('[BANTAI] Showing provisioning dialog');
+      _dialogShown = true;
+      _scannerController.stop();
+      showProvisioningDialog(
+        context,
+        controller: widget.controller,
+        onProvision: () {
+          debugPrint('[BANTAI] onProvision called');
+          return widget.controller.startProvisioning();
+        },
+      ).then((_) {
+        _dialogShown = false;
+        _scannerController.start();
+      });
+    }
   }
 
   @override
