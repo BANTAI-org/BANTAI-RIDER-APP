@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class LoginHeader extends StatelessWidget {
   const LoginHeader({super.key, required this.size});
@@ -10,8 +11,8 @@ class LoginHeader extends StatelessWidget {
     return SizedBox(
       height: size.height * 0.38,
       child: Stack(
-        clipBehavior: Clip.none,
         children: [
+          // Top branding row (Logo + App Name)
           Positioned(
             top: 16,
             left: 24,
@@ -19,19 +20,19 @@ class LoginHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.navigation_rounded,
-                    color: Colors.white,
-                    size: 22,
+                  padding: const EdgeInsets.all(6),
+                  child: SvgPicture.asset(
+                    'lib/core/assets/logo.svg',
+                    fit: BoxFit.contain,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 const Text.rich(
                   TextSpan(
                     style: TextStyle(color: Colors.white),
@@ -58,11 +59,20 @@ class LoginHeader extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: -10,
-            bottom: -20,
-            child: SizedBox(
-              width: size.width * 0.68,
-              height: size.height * 0.36,
+            right:
+                -size.width * 0.12,
+            bottom:
+                -size.height *
+                0.02,
+            child: Transform.flip(
+              flipX: true,
+              child: Image.asset(
+                'lib/core/assets/rider-icon.png',
+                height:
+                    size.height *
+                    0.32,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
         ],

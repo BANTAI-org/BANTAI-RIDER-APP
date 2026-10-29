@@ -52,10 +52,7 @@ class LoginController extends ChangeNotifier {
         email: identifierController.text.trim(),
         password: passwordController.text,
       );
-      await _tokenStorage.save(
-        tokens,
-        keepSignedIn: _keepMeSignedIn,
-      );
+      await _tokenStorage.save(tokens, keepSignedIn: _keepMeSignedIn);
       return true;
     } finally {
       _isLoading = false;
@@ -84,6 +81,8 @@ class LoginController extends ChangeNotifier {
         }
         rethrow;
       }
+    } catch (error) {
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -91,27 +90,27 @@ class LoginController extends ChangeNotifier {
   }
 
   Future<bool> loginWithDeviceSecurity() async {
-      if (_isLoading) return false;
+    if (_isLoading) return false;
 
-      final accessToken = await _tokenStorage.readAccessToken();
-      final keepSignedIn = await _tokenStorage.readKeepSignedIn();
-      if (accessToken == null || accessToken.isEmpty || !keepSignedIn) {
-        return false;
-      }
+    final accessToken = await _tokenStorage.readAccessToken();
+    final keepSignedIn = await _tokenStorage.readKeepSignedIn();
+    if (accessToken == null || accessToken.isEmpty || !keepSignedIn) {
+      return false;
+    }
 
-      if (!await _localAuthentication.isDeviceSupported()) {
-        return false;
-      }
+    if (!await _localAuthentication.isDeviceSupported()) {
+      return false;
+    }
 
-      _isLoading = true;
+    _isLoading = true;
+    notifyListeners();
+    try {
+      return await _localAuthentication.authenticate(
+        localizedReason: 'Use Face ID, fingerprint, or your device password.',
+      );
+    } finally {
+      _isLoading = false;
       notifyListeners();
-      try {
-        return await _localAuthentication.authenticate(
-          localizedReason: 'Use Face ID, fingerprint, or your device password.',
-        );
-      } finally {
-        _isLoading = false;
-        notifyListeners();
     }
   }
 

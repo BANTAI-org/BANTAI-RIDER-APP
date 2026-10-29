@@ -12,9 +12,9 @@ class EmergencyContactModel extends EmergencyContact {
   factory EmergencyContactModel.fromJson(Map<String, dynamic> json) {
     return EmergencyContactModel(
       id: json['id'] as String?,
-      name: json['name'] as String,
-      relation: json['relation'] as String,
-      phoneNumber: json['phone_number'] as String,
+      name: json['name'] as String? ?? '',
+      relation: json['relation'] as String? ?? '',
+      phoneNumber: (json['phone_number'] ?? json['number']) as String? ?? '',
       isFirstCall: json['is_first_call'] as bool? ?? false,
     );
   }

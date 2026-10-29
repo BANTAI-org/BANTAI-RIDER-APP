@@ -2,11 +2,14 @@ import '../../domain/entities/auth_tokens.dart';
 import '../../domain/entities/driver_registration.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
+import '../../core/storage/auth_token_storage.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  const AuthRepositoryImpl(this._remoteDataSource);
+  AuthRepositoryImpl(this._remoteDataSource, {AuthTokenStorage? tokenStorage})
+    : _tokenStorage = tokenStorage ?? AuthTokenStorage();
 
   final AuthRemoteDataSource _remoteDataSource;
+  final AuthTokenStorage _tokenStorage;
 
   @override
   Future<AuthTokens> login({required String email, required String password}) =>
@@ -52,6 +55,22 @@ class AuthRepositoryImpl implements AuthRepository {
     contactNumber: contactNumber,
     otpCode: otpCode,
   );
+
+  @override
+  Future<AuthTokens> refresh({required String refreshToken}) async {
+    final tokens = await _remoteDataSource.refresh(refreshToken: refreshToken);
+    await _tokenStorage.save(tokens, keepSignedIn: true);
+    return tokens;
+  }
+
+  @override
+  Future<void> logout() async {
+    try {
+      await _remoteDataSource.logout();
+    } finally {
+      await _tokenStorage.clear();
+    }
+  }
 
   @override
   Future<void> resetPassword({

@@ -43,6 +43,22 @@ class ApiClient {
     return _decodeResponse(response);
   }
 
+  Future<Map<String, dynamic>> patch(
+    String path,
+    Map<String, dynamic> body, {
+    bool authenticated = true,
+  }) async {
+    final response = await _client
+        .patch(
+          Uri.parse('${NetworkSettings.baseUrl}$path'),
+          headers: await _headers(authenticated),
+          body: jsonEncode(body),
+        )
+        .timeout(NetworkSettings.requestTimeout);
+
+    return _decodeResponse(response);
+  }
+
   Future<Map<String, dynamic>> put(
     String path,
     Map<String, dynamic> body, {
@@ -95,7 +111,7 @@ class ApiClient {
     return {
       'Content-Type': 'application/json',
       if (accessToken != null && accessToken.isNotEmpty)
-        'Authorization': 'Bearer $accessToken',
+        'Authorization': 'Bearer ' + accessToken,
     };
   }
 }

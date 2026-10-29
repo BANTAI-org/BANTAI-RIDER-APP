@@ -20,11 +20,9 @@ class AuthRemoteDataSource {
   }
 
   Future<AuthTokensModel> loginWithGoogle({required String idToken}) async {
-    final response = await _apiClient.post(
-      NetworkSettings.googleSignInPath,
-      {'idToken': idToken},
-      authenticated: false,
-    );
+    final response = await _apiClient.post(NetworkSettings.googleSignInPath, {
+      'idToken': idToken,
+    }, authenticated: false);
     return AuthTokensModel.fromJson(response);
   }
 
@@ -79,6 +77,17 @@ class AuthRemoteDataSource {
       authenticated: false,
     );
     return response['reset_token'] as String;
+  }
+
+  Future<AuthTokensModel> refresh({required String refreshToken}) async {
+    final response = await _apiClient.post(NetworkSettings.refreshPath, {
+      'refreshToken': refreshToken,
+    }, authenticated: false);
+    return AuthTokensModel.fromJson(response);
+  }
+
+  Future<void> logout() async {
+    await _apiClient.post(NetworkSettings.logoutPath, {});
   }
 
   Future<void> resetPassword({

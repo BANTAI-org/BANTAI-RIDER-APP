@@ -1,13 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../auth/screens/login.dart';
+import '../../../data/datasources/auth_remote_data_source.dart';
 import '../../../data/datasources/profile_remote_data_source.dart';
+import '../../../data/repositories/auth_repository_impl.dart';
 import '../../../data/repositories/profile_repository_impl.dart';
 import '../controllers/profile_controller.dart';
 import '../widgets/profile_widgets.dart';
 import '../widgets/sos_broadcast_widget.dart';
 import '../widgets/rider_details_widget.dart';
 import '../widgets/emergency_contacts_widget.dart';
+import 'edit_profile.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.controller});
@@ -28,13 +34,16 @@ class _ProfilePageState extends State<ProfilePage> {
     _controller = widget.controller ?? _createDefaultController();
     _ownsController = widget.controller == null;
     _controller.addListener(_refresh);
+    unawaited(_controller.loadProfileData());
   }
 
   ProfileController _createDefaultController() {
     final apiClient = ApiClient();
     final dataSource = ProfileRemoteDataSource(apiClient);
     final repository = ProfileRepositoryImpl(dataSource);
-    return ProfileController(repository);
+    final authDataSource = AuthRemoteDataSource(apiClient);
+    final authRepository = AuthRepositoryImpl(authDataSource);
+    return ProfileController(repository, authRepository);
   }
 
   @override
@@ -117,12 +126,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         subtitle: 'Not linked',
                         onTap: _controller.connectGoogle,
                       ),
-                      ProfileAccountTile(
-                        icon: Icons.apple,
-                        title: 'Apple',
-                        subtitle: 'Not linked',
-                        onTap: _controller.connectApple,
-                      ),
                     ],
                   ),
                   const SizedBox(height: 9),
@@ -137,7 +140,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       ProfileActionTile(
                         icon: Icons.edit_outlined,
                         title: 'Edit profile information',
-                        onTap: _controller.editProfile,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => EditProfilePage(controller: _controller),
+                          ),
+                        ),
                       ),
                       ProfileActionTile(
                         icon: Icons.face_retouching_natural,
@@ -147,7 +154,42 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  ProfileSignOutButton(onTap: _controller.signOut),
+                  ProfileSignOutButton(
+                    onTap: () async {
+                      final shouldSignOut = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('Sign out?'),
+                          content: const Text(
+                            'Are you sure you want to sign out?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(true),
+                              child: const Text('Sign out'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (shouldSignOut != true || !context.mounted) return;
+                      await _controller.signOut();
+                      if (!context.mounted) return;
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) => LoginPage(
+                            authRepository: _controller.authRepository,
+                          ),
+                        ),
+                        (route) => false,
+                      );
+                    },
+                  ),
                 ]),
               ),
             ),

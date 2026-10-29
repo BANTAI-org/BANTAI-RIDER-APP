@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../../domain/repositories/auth_repository.dart';
@@ -108,6 +109,7 @@ class _LoginPageState extends State<LoginPage> {
         SnackBar(
           content: Text('Google authentication failed: $error'),
           backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 6),
         ),
       );
     }
@@ -136,30 +138,34 @@ class _LoginPageState extends State<LoginPage> {
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: IntrinsicHeight(
-                child: Column(
+                child: Stack(
                   children: [
-                    LoginHeader(size: size),
-                    Expanded(
-                      child: LoginForm(
-                        controller: _controller,
-                        onLogin: _handleLogin,
-                        onDeviceLogin: _handleDeviceLogin,
-                        onGoogleLogin: _handleGoogleLogin,
-                        onSignUp: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => SignupPage(
-                              authRepository: widget.authRepository,
+                    Column(
+                      children: [
+                        LoginHeader(size: size),
+                        Expanded(
+                          child: LoginForm(
+                            controller: _controller,
+                            onLogin: _handleLogin,
+                            onDeviceLogin: _handleDeviceLogin,
+                            onGoogleLogin: _handleGoogleLogin,
+                            onSignUp: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => SignupPage(
+                                  authRepository: widget.authRepository,
+                                ),
+                              ),
+                            ),
+                            onForgotPassword: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ForgotPasswordPage(
+                                  authRepository: widget.authRepository,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                        onForgotPassword: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => ForgotPasswordPage(
-                              authRepository: widget.authRepository,
-                            ),
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),

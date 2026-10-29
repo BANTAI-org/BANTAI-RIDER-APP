@@ -17,12 +17,9 @@ class ProfileRemoteDataSource {
     return RiderProfileModel.fromJson(response);
   }
 
-  Future<void> updateRiderProfile(RiderProfileModel profile) async {
-    await _apiClient.put(
-      NetworkSettings.profilePath,
-      profile.toJson(),
-      authenticated: true,
-    );
+  Future<void> updateRiderProfile(Map<String, dynamic> patch) async {
+    if (patch.isEmpty) return;
+    await _apiClient.patch('/drivers/profile', patch, authenticated: true);
   }
 
   Future<SosBroadcastModel> getSosBroadcast() async {
@@ -43,17 +40,19 @@ class ProfileRemoteDataSource {
 
   Future<List<EmergencyContactModel>> getEmergencyContacts() async {
     final response = await _apiClient.get(
-      NetworkSettings.emergencyContactsPath,
+      NetworkSettings.profilePath,
       authenticated: true,
     );
-    final List<dynamic> contactsJson = response['contacts'] as List<dynamic>;
+    final contactsJson = response['emergency_contacts'] as List<dynamic>? ?? [];
     return contactsJson
-        .map((json) => EmergencyContactModel.fromJson(json as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(EmergencyContactModel.fromJson)
         .toList();
   }
 
   Future<EmergencyContactModel> addEmergencyContact(
-      EmergencyContactModel contact) async {
+    EmergencyContactModel contact,
+  ) async {
     final response = await _apiClient.post(
       NetworkSettings.emergencyContactsPath,
       contact.toJson(),
@@ -63,7 +62,9 @@ class ProfileRemoteDataSource {
   }
 
   Future<void> updateEmergencyContact(
-      String id, EmergencyContactModel contact) async {
+    String id,
+    EmergencyContactModel contact,
+  ) async {
     await _apiClient.put(
       '/profile/emergency-contacts/$id',
       contact.toJson(),

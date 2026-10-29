@@ -1,3 +1,5 @@
+import 'emergency_contact.dart';
+
 class RiderProfile {
   const RiderProfile({
     this.id,
@@ -14,6 +16,7 @@ class RiderProfile {
     this.operatorCode,
     this.operatorStatus,
     this.serviceProvider,
+    this.fleetOperatorId,
     this.experienceYears,
     this.motorcycleMake,
     this.motorcycleModel,
@@ -22,6 +25,7 @@ class RiderProfile {
     this.motorcycleColor,
     this.bloodType,
     this.medicalConditions,
+    this.emergencyContacts = const [],
   });
 
   final String? id;
@@ -38,6 +42,7 @@ class RiderProfile {
   final String? operatorCode;
   final String? operatorStatus;
   final String? serviceProvider;
+  final String? fleetOperatorId;
   final int? experienceYears;
   final String? motorcycleMake;
   final String? motorcycleModel;
@@ -46,4 +51,5 @@ class RiderProfile {
   final String? motorcycleColor;
   final String? bloodType;
   final String? medicalConditions;
+  final List<EmergencyContact> emergencyContacts;
 }

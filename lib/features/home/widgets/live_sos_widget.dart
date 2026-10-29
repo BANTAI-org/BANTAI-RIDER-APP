@@ -4,10 +4,14 @@ class LiveSosWidget extends StatelessWidget {
   const LiveSosWidget({
     super.key,
     required this.isSosActive,
+    this.isSosSending = false,
+    this.sosError,
     this.onManualSos,
   });
 
   final bool isSosActive;
+  final bool isSosSending;
+  final String? sosError;
   final VoidCallback? onManualSos;
 
   @override
@@ -65,13 +69,26 @@ class LiveSosWidget extends StatelessWidget {
               width: double.infinity,
               height: 66,
               child: ElevatedButton.icon(
-                onPressed: onManualSos,
-                icon: Icon(
-                  isSosActive ? Icons.close : Icons.warning_rounded,
-                  size: 22,
-                ),
+                onPressed: isSosSending ? null : onManualSos,
+                icon: isSosSending
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(
+                        isSosActive ? Icons.close : Icons.warning_rounded,
+                        size: 22,
+                      ),
                 label: Text(
-                  isSosActive ? 'Cancel Manual SOS' : 'Hold for Manual SOS',
+                  isSosSending
+                      ? 'Sending Manual SOS...'
+                      : isSosActive
+                      ? 'Cancel Manual SOS'
+                      : 'Hold for Manual SOS',
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF3B38),
@@ -88,6 +105,19 @@ class LiveSosWidget extends StatelessWidget {
                 ),
               ),
             ),
+            if (sosError != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  sosError!,
+                  style: const TextStyle(
+                    color: Color(0xFFE60012),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

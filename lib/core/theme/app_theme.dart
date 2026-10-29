@@ -10,10 +10,16 @@ class AppTheme {
   static const Color fieldBorder = Color(0xFFD9D9DE);
 
   static ThemeData get light {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: brandRed,
-      brightness: Brightness.light,
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: brandRed,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: brandRed,
+          onPrimary: Colors.white,
+          error: brandRed,
+          onError: Colors.white,
+        );
     return ThemeData(
       colorScheme: colorScheme,
       scaffoldBackgroundColor: surface,

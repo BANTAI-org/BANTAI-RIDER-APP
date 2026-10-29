@@ -19,8 +19,10 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<void> updateRiderProfile(RiderProfile profile) async {
+    final original = await _remoteDataSource.getRiderProfile();
     final model = RiderProfileModel.fromEntity(profile);
-    await _remoteDataSource.updateRiderProfile(model);
+    final patch = model.toPatchJson(original);
+    await _remoteDataSource.updateRiderProfile(patch);
   }
 
   @override
@@ -46,7 +48,10 @@ class ProfileRepositoryImpl implements ProfileRepository {
   }
 
   @override
-  Future<void> updateEmergencyContact(String id, EmergencyContact contact) async {
+  Future<void> updateEmergencyContact(
+    String id,
+    EmergencyContact contact,
+  ) async {
     final model = EmergencyContactModel.fromEntity(contact);
     await _remoteDataSource.updateEmergencyContact(id, model);
   }

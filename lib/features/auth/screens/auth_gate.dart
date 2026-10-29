@@ -37,6 +37,20 @@ class _AuthGateState extends State<AuthGate> {
       return _loginPage();
     }
 
+    // Refresh the access token before biometric unlock so a long-closed app
+    // does not enter the home screen with an expired token.
+    final refreshToken = await _tokenStorage.readRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      await _tokenStorage.clear();
+      return _loginPage();
+    }
+    try {
+      await widget.authRepository.refresh(refreshToken: refreshToken);
+    } catch (_) {
+      await _tokenStorage.clear();
+      return _loginPage();
+    }
+
     if (!await _localAuthentication.isDeviceSupported()) {
       return const HomeShell();
     }

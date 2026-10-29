@@ -165,14 +165,6 @@ class LoginForm extends StatelessWidget {
                     onTap: onGoogleLogin,
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: SocialAuthButton(
-                    label: 'Apple',
-                    icon: const Icon(Icons.apple, size: 22),
-                    onTap: () {},
-                  ),
-                ),
               ],
             ),
             const Spacer(),

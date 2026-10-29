@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../controllers/signup_controller.dart';
 import 'forgot_password_widgets.dart';
@@ -112,17 +113,15 @@ class _AccountStep extends StatelessWidget {
           title: 'Password',
           child: Column(
             children: [
-              SignupField(
+              _PasswordField(
                 controller: controller.passwordController,
                 label: 'Password',
                 validator: controller.validatePassword,
-                obscureText: true,
               ),
-              SignupField(
+              _PasswordField(
                 controller: controller.confirmPasswordController,
                 label: 'Confirm password',
                 validator: controller.validateConfirmation,
-                obscureText: true,
               ),
             ],
           ),
@@ -465,7 +464,98 @@ class _VerifyStep extends StatelessWidget {
           controllers: controller.otpControllers,
           validator: controller.validateOtp,
         ),
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: controller.isLoading
+              ? null
+              : () async {
+                  final sent = await controller.otpSend();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        sent
+                            ? 'Verification code sent again.'
+                            : 'Failed to resend code. Please try again.',
+                      ),
+                    ),
+                  );
+                },
+          child: const Text('Resend SMS code'),
+        ),
       ],
     ),
   );
+}
+
+class _PasswordField extends StatefulWidget {
+  const _PasswordField({
+    required this.controller,
+    required this.label,
+    required this.validator,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String? Function(String?) validator;
+
+  @override
+  State<_PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<_PasswordField> {
+  bool _obscureText = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: widget.controller,
+        validator: widget.validator,
+        obscureText: _obscureText,
+        decoration: InputDecoration(
+          labelText: widget.label,
+          filled: true,
+          fillColor: AppTheme.fieldFill,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 15,
+          ),
+          border: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderSide: BorderSide(color: AppTheme.fieldBorder),
+          ),
+          enabledBorder: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderSide: BorderSide(color: AppTheme.fieldBorder),
+          ),
+          focusedBorder: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderSide: BorderSide(color: AppTheme.brandRed),
+          ),
+          errorBorder: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderSide: BorderSide(color: Colors.redAccent),
+          ),
+          focusedErrorBorder: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderSide: BorderSide(color: Colors.redAccent),
+          ),
+          suffixIcon: IconButton(
+            icon: Icon(
+              _obscureText
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+            onPressed: () {
+              setState(() {
+                _obscureText = !_obscureText;
+              });
+            },
+          ),
+        ),
+      ),
+    );
+  }
 }

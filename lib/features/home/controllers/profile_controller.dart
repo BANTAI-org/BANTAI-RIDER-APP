@@ -1,18 +1,23 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../domain/entities/emergency_contact.dart';
+import '../../../domain/repositories/auth_repository.dart';
 import '../../../domain/entities/rider_profile.dart';
 import '../../../domain/entities/sos_broadcast.dart';
 import '../../../domain/repositories/profile_repository.dart';
 
 class ProfileController extends ChangeNotifier {
-  ProfileController(this._profileRepository);
+  ProfileController(this._profileRepository, this._authRepository);
 
   final ProfileRepository _profileRepository;
+  final AuthRepository _authRepository;
+
+  AuthRepository get authRepository => _authRepository;
 
   bool _announceResponderEta = true;
   bool _autoConnectHeadset = false;
   bool _isLoading = false;
+  String? _errorMessage;
 
   SosBroadcast? _sosBroadcast;
   RiderProfile? _riderProfile;
@@ -30,8 +35,9 @@ class ProfileController extends ChangeNotifier {
 
   String get email => _riderProfile?.emailAddress ?? '';
   String get phoneNumber => _riderProfile?.phoneNumber ?? '';
-  String get accountId => '';
+  String get accountId => _riderProfile?.fleetOperatorId ?? '';
   String get serviceProvider => _riderProfile?.serviceProvider ?? '';
+  String get fleetOperatorId => _riderProfile?.fleetOperatorId ?? '';
   String get faceIdStatus => '';
 
   String get vehicleDetails {
@@ -62,9 +68,22 @@ class ProfileController extends ChangeNotifier {
   bool get announceResponderEta => _announceResponderEta;
   bool get autoConnectHeadset => _autoConnectHeadset;
   bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
 
-  Future<void> editProfile() async {
-    // TODO(backend): Load and save the rider profile.
+  Future<void> saveEditedProfile(RiderProfile data) async {
+    _setLoading(true);
+    _errorMessage = null;
+    try {
+      await _profileRepository.updateRiderProfile(data);
+      _riderProfile = data;
+      notifyListeners();
+    } catch (error) {
+      _errorMessage = error.toString();
+      notifyListeners();
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
   }
 
   Future<void> loadProfileData() async {
@@ -73,21 +92,19 @@ class ProfileController extends ChangeNotifier {
       // Fetch all profile data from backend
       RiderProfile? riderProfile;
       SosBroadcast? sosBroadcast;
-      List<EmergencyContact> emergencyContacts = [];
-
       try {
         riderProfile = await _profileRepository.getRiderProfile();
-      } catch (_) {}
+      } catch (error) {
+        debugPrint('Profile request failed: $error');
+      }
       try {
         sosBroadcast = await _profileRepository.getSosBroadcast();
       } catch (_) {}
-      try {
-        emergencyContacts = await _profileRepository.getEmergencyContacts();
-      } catch (_) {}
-
+      // Emergency contacts are included in GET /drivers. The backend does not
+      // expose a separate /profile/emergency-contacts endpoint.
       _riderProfile = riderProfile;
       _sosBroadcast = sosBroadcast;
-      _emergencyContacts = emergencyContacts;
+      _emergencyContacts = riderProfile?.emergencyContacts ?? [];
       notifyListeners();
     } catch (e) {
       // Handle error - for now just set empty data
@@ -182,7 +199,7 @@ class ProfileController extends ChangeNotifier {
   Future<void> signOut() async {
     _setLoading(true);
     try {
-      // TODO(auth): Clear the session and revoke the refresh token.
+      await _authRepository.logout();
     } finally {
       _setLoading(false);
     }

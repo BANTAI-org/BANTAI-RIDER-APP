@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -35,9 +36,15 @@ class GoogleAuthService {
   final GoogleSignIn _googleSignIn;
 
   Future<GoogleAuthCredential?> signIn() async {
-    final account = await _googleSignIn.signIn();
-    if (account == null) return null;
-    return _credentialFor(account);
+    try {
+      final account = await _googleSignIn.signIn();
+      if (account == null) return null;
+      return await _credentialFor(account);
+    } catch (error, stackTrace) {
+      debugPrint('Google sign in error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    }
   }
 
   Future<GoogleAuthCredential?> refreshCredential() async {

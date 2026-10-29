@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/network/api_client.dart';
+import '../../../data/datasources/rider_remote_data_source.dart';
+import '../../../data/repositories/sos_repository_impl.dart';
 import '../controllers/ride_controller.dart';
 import '../widgets/live_sos_widget.dart';
 import '../widgets/live_telemetry_widget.dart';
@@ -22,7 +25,9 @@ class _RidePageState extends State<RidePage> {
   @override
   void initState() {
     super.initState();
-    _controller = widget._controller ?? RideController();
+    _controller =
+        widget._controller ??
+        RideController(SosRepositoryImpl(RiderRemoteDataSource(ApiClient())));
     _ownsController = widget._controller == null;
     _controller.addListener(_refresh);
   }
@@ -89,6 +94,8 @@ class _RidePageState extends State<RidePage> {
                     const SizedBox(height: 20),
                     LiveSosWidget(
                       isSosActive: _controller.isSosActive,
+                      isSosSending: _controller.isSosSending,
+                      sosError: _controller.sosError,
                       onManualSos: _controller.isSosActive
                           ? _controller.clearManualSos
                           : _controller.triggerManualSos,
