@@ -80,9 +80,12 @@ class AuthRemoteDataSource {
   }
 
   Future<AuthTokensModel> refresh({required String refreshToken}) async {
-    final response = await _apiClient.post(NetworkSettings.refreshPath, {
-      'refreshToken': refreshToken,
-    }, authenticated: false);
+    final response = await _apiClient.post(
+      NetworkSettings.refreshPath,
+      {},
+      authenticated: false,
+      refreshToken: refreshToken,
+    );
     return AuthTokensModel.fromJson(response);
   }
 

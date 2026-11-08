@@ -6,12 +6,33 @@ import '../constants/network_settings.dart';
 import '../storage/auth_token_storage.dart';
 
 class ApiClient {
-  ApiClient({http.Client? client, AuthTokenStorage? tokenStorage})
-    : _client = client ?? http.Client(),
+  ApiClient({
+    http.Client? client,
+    AuthTokenStorage? tokenStorage,
+    String? baseUrl,
+  }) : _baseUrl = baseUrl ?? NetworkSettings.baseUrl,
+      _client = client ?? http.Client(),
       _tokenStorage = tokenStorage ?? AuthTokenStorage();
 
   final http.Client _client;
   final AuthTokenStorage _tokenStorage;
+  final String _baseUrl;
+
+  Future<Map<String, String>> _headers(
+    bool authenticated, {
+    String? refreshToken,
+  }) async {
+    final accessToken = authenticated
+        ? await _tokenStorage.readAccessToken()
+        : null;
+    return {
+      'Content-Type': 'application/json',
+      if (accessToken != null && accessToken.isNotEmpty)
+        'Authorization': 'Bearer $accessToken',
+      if (refreshToken != null && refreshToken.isNotEmpty)
+        'Cookie': 'refresh_token=$refreshToken',
+    };
+  }
 
   Future<Map<String, dynamic>> get(
     String path, {
@@ -19,7 +40,7 @@ class ApiClient {
   }) async {
     final response = await _client
         .get(
-          Uri.parse('${NetworkSettings.baseUrl}$path'),
+          Uri.parse('$_baseUrl$path'),
           headers: await _headers(authenticated),
         )
         .timeout(NetworkSettings.requestTimeout);
@@ -31,11 +52,15 @@ class ApiClient {
     String path,
     Map<String, dynamic> body, {
     bool authenticated = true,
+    String? refreshToken,
   }) async {
     final response = await _client
         .post(
-          Uri.parse('${NetworkSettings.baseUrl}$path'),
-          headers: await _headers(authenticated),
+          Uri.parse('$_baseUrl$path'),
+          headers: await _headers(
+            authenticated,
+            refreshToken: refreshToken,
+          ),
           body: jsonEncode(body),
         )
         .timeout(NetworkSettings.requestTimeout);
@@ -50,7 +75,7 @@ class ApiClient {
   }) async {
     final response = await _client
         .patch(
-          Uri.parse('${NetworkSettings.baseUrl}$path'),
+          Uri.parse('$_baseUrl$path'),
           headers: await _headers(authenticated),
           body: jsonEncode(body),
         )
@@ -66,7 +91,7 @@ class ApiClient {
   }) async {
     final response = await _client
         .put(
-          Uri.parse('${NetworkSettings.baseUrl}$path'),
+          Uri.parse('$_baseUrl$path'),
           headers: await _headers(authenticated),
           body: jsonEncode(body),
         )
@@ -81,7 +106,7 @@ class ApiClient {
   }) async {
     final response = await _client
         .delete(
-          Uri.parse('${NetworkSettings.baseUrl}$path'),
+          Uri.parse('$_baseUrl$path'),
           headers: await _headers(authenticated),
         )
         .timeout(NetworkSettings.requestTimeout);
@@ -103,17 +128,6 @@ class ApiClient {
   }
 
   void dispose() => _client.close();
-
-  Future<Map<String, String>> _headers(bool authenticated) async {
-    final accessToken = authenticated
-        ? await _tokenStorage.readAccessToken()
-        : null;
-    return {
-      'Content-Type': 'application/json',
-      if (accessToken != null && accessToken.isNotEmpty)
-        'Authorization': 'Bearer $accessToken',
-    };
-  }
 }
 
 class ApiException implements Exception {
