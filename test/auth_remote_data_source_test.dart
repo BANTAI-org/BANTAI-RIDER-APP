@@ -5,11 +5,14 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:bantai_rider_app/core/constants/network_settings.dart';
 import 'package:bantai_rider_app/core/network/api_client.dart';
+import 'package:bantai_rider_app/core/storage/auth_token_storage.dart';
 import 'package:bantai_rider_app/data/datasources/auth_remote_data_source.dart';
 import 'package:bantai_rider_app/domain/entities/driver_registration.dart';
 
 void main() {
   late http.Request request;
+
+  final tokenStorage = _FakeAuthTokenStorage();
 
   setUpAll(() async {
     await dotenv.load(fileName: '.env');
@@ -24,7 +27,11 @@ void main() {
       return http.Response(jsonEncode(response), statusCode);
     });
     return AuthRemoteDataSource(
-      ApiClient(client: client, baseUrl: NetworkSettings.baseUrl),
+      ApiClient(
+        client: client,
+        baseUrl: NetworkSettings.baseUrl,
+        tokenStorage: tokenStorage,
+      ),
     );
   }
 
@@ -192,4 +199,11 @@ void main() {
       ),
     );
   });
+}
+
+class _FakeAuthTokenStorage extends AuthTokenStorage {
+  _FakeAuthTokenStorage() : super();
+
+  @override
+  Future<String?> readAccessToken() async => 'test-access-token';
 }
