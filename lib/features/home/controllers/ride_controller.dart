@@ -93,8 +93,8 @@ class RideController extends ChangeNotifier {
       _sosEventId = await _sosRepository.createManualSos(
         latitude: position.latitude,
         longitude: position.longitude,
-        threatType: ThreatType.confrontation, // TODO: correct manual default
-        threatCategory: ThreatCategory.hazard, // TODO: correct manual default
+        threatType: ThreatType.other, 
+        threatCategory: ThreatCategory.assist, // TODO: correct manual default
       );
       _isSosActive = true;
       return true;

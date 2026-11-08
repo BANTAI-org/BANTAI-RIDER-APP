@@ -13,7 +13,6 @@ class RideSessionWidget extends StatelessWidget {
 
   final RideController controller;
   final VoidCallback? onTap;
-
   Future<void> _showSessionSheet(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
