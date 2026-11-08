@@ -13,12 +13,14 @@ class SosRepositoryImpl implements SosRepository {
     required double longitude,
     required ThreatType threatType,
     required ThreatCategory threatCategory,
+    required TriggerSource triggerSource,
   }) {
     return _remoteDataSource.createManualSos(
       latitude: latitude,
       longitude: longitude,
       threatType: threatType,
       threatCategory: threatCategory,
+      triggerSource: triggerSource,
     );
   }
 }

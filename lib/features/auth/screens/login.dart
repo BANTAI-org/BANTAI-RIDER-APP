@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:local_auth/local_auth.dart';
-
 import '../../../domain/repositories/auth_repository.dart';
 import '../controllers/login_controller.dart';
 import '../widgets/login_form.dart';

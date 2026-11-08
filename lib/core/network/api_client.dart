@@ -111,7 +111,7 @@ class ApiClient {
     return {
       'Content-Type': 'application/json',
       if (accessToken != null && accessToken.isNotEmpty)
-        'Authorization': 'Bearer ' + accessToken,
+        'Authorization': 'Bearer ${accessToken}',
     };
   }
 }

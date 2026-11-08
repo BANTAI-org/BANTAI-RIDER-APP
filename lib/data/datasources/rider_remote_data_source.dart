@@ -14,9 +14,10 @@ class RiderRemoteDataSource {
     required double longitude,
     required ThreatType threatType,
     required ThreatCategory threatCategory,
+    required TriggerSource triggerSource,
   }) async {
     final json = await _api.post(NetworkSettings.manualSosPath, {
-      'trigger_source': TriggerSource.manualSos.wire,
+      'trigger_source': triggerSource.wire,
       'location': {'latitude': latitude, 'longitude': longitude},
       'threat_type': threatType.wire,
       'threat_category': threatCategory.wire,

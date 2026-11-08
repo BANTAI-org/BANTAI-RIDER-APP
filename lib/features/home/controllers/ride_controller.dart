@@ -17,7 +17,6 @@ class RideController extends ChangeNotifier {
   bool _isLoading = false;
   bool _isSosActive = false;
   bool _isSosSending = false;
-  String? _sosEventId;
   String? _sosError;
   bool _isSessionLive = false;
   Duration _sessionRemaining = Duration.zero;
@@ -90,11 +89,12 @@ class RideController extends ChangeNotifier {
         return false;
       }
 
-      _sosEventId = await _sosRepository.createManualSos(
+      await _sosRepository.createManualSos(
         latitude: position.latitude,
         longitude: position.longitude,
-        threatType: ThreatType.other, 
-        threatCategory: ThreatCategory.assist, // TODO: correct manual default
+        threatType: ThreatType.other,
+        threatCategory: ThreatCategory.assist,
+        triggerSource: TriggerSource.manualSos,
       );
       _isSosActive = true;
       return true;
@@ -114,7 +114,6 @@ class RideController extends ChangeNotifier {
     // TODO(backend): No cancel/resolve endpoint yet. This only resets the app
     // state, so the command center still sees the incident as open.
     _isSosActive = false;
-    _sosEventId = null;
     notifyListeners();
     return true;
   }
