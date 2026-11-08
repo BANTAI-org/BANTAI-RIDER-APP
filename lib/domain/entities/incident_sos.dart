@@ -6,14 +6,29 @@ enum TriggerSource {
 }
 
 enum ThreatType {
-  confrontation('CONFRONTATION'); // TODO: add the rest / the right default
+  gun('GUN'),
+  blade('BLADE'),
+  confrontation('CONFRONTATION'),
+  collision('COLLISION'),
+  personDown('PERSON_DOWN'),
+  other('OTHER');
 
   const ThreatType(this.wire);
+
   final String wire;
+  static ThreatType fromWire(String value) {
+    return ThreatType.values.firstWhere(
+      (e) => e.wire == value,
+      orElse: () => throw FormatException('Unknown ThreatType: $value'),
+    );
+  }
 }
 
 enum ThreatCategory {
-  hazard('HAZARD'); // TODO: add the rest / the right default
+  hazard('HAZARD'),
+  assist('ASSIST'),
+  deEscalatable('DE_ESCALATABLE');
+
 
   const ThreatCategory(this.wire);
   final String wire;

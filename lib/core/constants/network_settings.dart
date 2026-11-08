@@ -57,5 +57,9 @@ class NetworkSettings {
     }
     return value;
   }
+
+  // Duty endpoints
+  static const String changeDutyPath = '/drivers/duty';
+
 }
 
