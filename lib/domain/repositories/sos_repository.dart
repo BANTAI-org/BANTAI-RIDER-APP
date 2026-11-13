@@ -8,4 +8,11 @@ abstract class SosRepository {
     required ThreatCategory threatCategory,
     required TriggerSource triggerSource,
   });
+
+  Future<Map<String, dynamic>> getShiftStatus();
+
+  Future<void> changeDuty({
+    required String dutyStatus,
+    int? shiftHours,
+  });
 }

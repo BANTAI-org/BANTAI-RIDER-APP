@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
@@ -30,6 +32,7 @@ class _RidePageState extends State<RidePage> {
         RideController(SosRepositoryImpl(RiderRemoteDataSource(ApiClient())));
     _ownsController = widget._controller == null;
     _controller.addListener(_refresh);
+    unawaited(_controller.loadRideDashboard());
   }
 
   @override

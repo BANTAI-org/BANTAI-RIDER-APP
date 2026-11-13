@@ -52,7 +52,8 @@ class SignupController extends ChangeNotifier {
   final licenseExpiryController = TextEditingController();
   final yearsRidingController = TextEditingController();
   final serviceProviderController = TextEditingController(text: 'angkas');
-  final operatorIdController = TextEditingController();
+  final serviceIdController = TextEditingController();
+  final fleetOperatorIdController = TextEditingController();
   final plateNumberController = TextEditingController();
   final motorcycleController = TextEditingController();
   final bodyColorController = TextEditingController();
@@ -93,7 +94,8 @@ class SignupController extends ChangeNotifier {
     licenseNumberController,
     licenseExpiryController,
     yearsRidingController,
-    operatorIdController,
+    serviceIdController,
+    fleetOperatorIdController,
     plateNumberController,
     motorcycleController,
     bodyColorController,
@@ -175,7 +177,8 @@ class SignupController extends ChangeNotifier {
     'licenseNumber': licenseNumberController,
     'licenseExpiry': licenseExpiryController,
     'yearsRiding': yearsRidingController,
-    'operatorId': operatorIdController,
+    'serviceId': serviceIdController,
+    'fleetOperatorId': fleetOperatorIdController,
     'plateNumber': plateNumberController,
     'motorcycle': motorcycleController,
     'bodyColor': bodyColorController,
@@ -258,7 +261,8 @@ class SignupController extends ChangeNotifier {
 
       var socialIdToken = _googleCredential?.idToken;
       if (_googleCredential != null) {
-        final refreshedCredential = await _googleAuthService.refreshCredential();
+        final refreshedCredential = await _googleAuthService
+            .refreshCredential();
         socialIdToken = refreshedCredential?.idToken ?? socialIdToken;
       }
       final registration = DriverRegistration(
@@ -273,6 +277,7 @@ class SignupController extends ChangeNotifier {
         socialIdToken: socialIdToken,
         serviceProvider: _toApiServiceProvider(serviceProviderController.text),
         serviceId: _serviceIdForRegistration,
+        fleetOperatorId: _optionalValue(fleetOperatorIdController.text),
         licenseNumber: licenseNumberController.text.trim(),
         licenseExpiresAt: _toIsoDate(licenseExpiryController.text),
         yearsRiding: int.parse(yearsRidingController.text.trim()),
@@ -318,7 +323,11 @@ class SignupController extends ChangeNotifier {
   }
 
   String _toApiServiceProvider(String value) {
-    switch (value.trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_')) {
+    switch (value
+        .trim()
+        .toLowerCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_')) {
       case 'angkas':
         return 'angkas';
       case 'move_it':
@@ -336,7 +345,12 @@ class SignupController extends ChangeNotifier {
   String? get _serviceIdForRegistration {
     final provider = _toApiServiceProvider(serviceProviderController.text);
     if (provider == 'independent') return null;
-    return operatorIdController.text.trim();
+    return serviceIdController.text.trim();
+  }
+
+  String? _optionalValue(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   String? validateServiceProvider(String? value) {
@@ -348,7 +362,8 @@ class SignupController extends ChangeNotifier {
   }
 
   String? validateServiceId(String? value) {
-    if (_toApiServiceProvider(serviceProviderController.text) == 'independent') {
+    if (_toApiServiceProvider(serviceProviderController.text) ==
+        'independent') {
       return null;
     }
     return validateRequired(value);
@@ -463,7 +478,8 @@ class SignupController extends ChangeNotifier {
     licenseNumberController.dispose();
     licenseExpiryController.dispose();
     yearsRidingController.dispose();
-    operatorIdController.dispose();
+    serviceIdController.dispose();
+    fleetOperatorIdController.dispose();
     plateNumberController.dispose();
     motorcycleController.dispose();
     bodyColorController.dispose();

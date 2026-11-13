@@ -60,7 +60,18 @@ class RideController extends ChangeNotifier {
   Future<void> loadRideDashboard() async {
     _setLoading(true);
     try {
-      // TODO(backend): Load live telemetry, nearby riders, and alerts.
+      final shift = await _sosRepository.getShiftStatus();
+      final isOnDuty = shift['duty_status'] == 'on_duty';
+      final remainingSeconds = (shift['remaining_seconds'] as num?)?.toInt();
+      _isSessionLive = isOnDuty && (remainingSeconds == null || remainingSeconds > 0);
+      _sessionRemaining = remainingSeconds != null && remainingSeconds > 0
+          ? Duration(seconds: remainingSeconds)
+          : Duration.zero;
+      if (_isSessionLive) {
+        _startSessionTimer();
+      }
+    } on ApiException catch (error) {
+      _sosError = 'Could not load ride status (${error.statusCode}): ${error.message}';
     } finally {
       _setLoading(false);
     }
@@ -119,18 +130,39 @@ class RideController extends ChangeNotifier {
   }
 
   Future<void> startSession({Duration? duration}) async {
-    _isSessionLive = true;
-    _sessionRemaining = duration ?? _selectedDuration;
-    _startSessionTimer();
-    notifyListeners();
-    // TODO(backend): Start the rider session through the session endpoint.
+    final selected = duration ?? _selectedDuration;
+    if (selected <= Duration.zero) return;
+
+    _setLoading(true);
+    _sosError = null;
+    try {
+      await _sosRepository.changeDuty(
+        dutyStatus: 'on_duty',
+        shiftHours: selected.inHours + (selected.inMinutes % 60 == 0 ? 0 : 1),
+      );
+      _isSessionLive = true;
+      _sessionRemaining = selected;
+      _startSessionTimer();
+    } on ApiException catch (error) {
+      _sosError = 'Could not start session (${error.statusCode}): ${error.message}';
+    } finally {
+      _setLoading(false);
+    }
   }
 
   Future<void> endSession() async {
-    _isSessionLive = false;
-    _sessionTimer?.cancel();
-    notifyListeners();
-    // TODO(backend): End the rider session through the session endpoint.
+    _setLoading(true);
+    _sosError = null;
+    try {
+      await _sosRepository.changeDuty(dutyStatus: 'off_duty');
+      _isSessionLive = false;
+      _sessionRemaining = Duration.zero;
+      _sessionTimer?.cancel();
+    } on ApiException catch (error) {
+      _sosError = 'Could not end session (${error.statusCode}): ${error.message}';
+    } finally {
+      _setLoading(false);
+    }
   }
 
   void _startSessionTimer() {

@@ -35,8 +35,10 @@ class ProfileController extends ChangeNotifier {
 
   String get email => _riderProfile?.emailAddress ?? '';
   String get phoneNumber => _riderProfile?.phoneNumber ?? '';
-  String get accountId => _riderProfile?.fleetOperatorId ?? '';
-  String get serviceProvider => _riderProfile?.serviceProvider ?? '';
+  String get accountId =>
+      _riderProfile?.fleetOperatorId ?? _riderProfile?.serviceId ?? '';
+  String get serviceProvider =>
+      _formatServiceProvider(_riderProfile?.serviceProvider);
   String get fleetOperatorId => _riderProfile?.fleetOperatorId ?? '';
   String get faceIdStatus => '';
 
@@ -220,5 +222,20 @@ class ProfileController extends ChangeNotifier {
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();
+  }
+
+  String _formatServiceProvider(String? value) {
+    switch (value?.trim().toLowerCase()) {
+      case 'angkas':
+        return 'Angkas';
+      case 'move_it':
+        return 'Move It';
+      case 'joyride':
+        return 'JoyRide';
+      case 'independent':
+        return 'Independent';
+      default:
+        return value?.trim() ?? '';
+    }
   }
 }

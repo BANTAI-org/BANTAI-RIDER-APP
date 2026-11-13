@@ -11,6 +11,7 @@ class DriverRegistration {
     this.socialIdToken,
     required this.serviceProvider,
     required this.serviceId,
+    this.fleetOperatorId,
     required this.licenseNumber,
     required this.licenseExpiresAt,
     required this.yearsRiding,
@@ -34,6 +35,7 @@ class DriverRegistration {
   final String? socialIdToken;
   final String serviceProvider;
   final String? serviceId;
+  final String? fleetOperatorId;
   final String licenseNumber;
   final String licenseExpiresAt;
   final int yearsRiding;
@@ -57,6 +59,8 @@ class DriverRegistration {
     if (socialIdToken != null) 'social_id_token': socialIdToken,
     'service_provider': serviceProvider,
     if (serviceId != null && serviceId!.isNotEmpty) 'service_id': serviceId,
+    if (fleetOperatorId != null && fleetOperatorId!.isNotEmpty)
+      'fleet_operator_id': fleetOperatorId,
     'license_number': licenseNumber,
     'license_expires_at': licenseExpiresAt,
     'years_riding': yearsRiding,

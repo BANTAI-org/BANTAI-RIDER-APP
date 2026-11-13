@@ -23,4 +23,20 @@ class SosRepositoryImpl implements SosRepository {
       triggerSource: triggerSource,
     );
   }
+
+  @override
+  Future<Map<String, dynamic>> getShiftStatus() {
+    return _remoteDataSource.getShiftStatus();
+  }
+
+  @override
+  Future<void> changeDuty({
+    required String dutyStatus,
+    int? shiftHours,
+  }) {
+    return _remoteDataSource.changeDuty(
+      dutyStatus: dutyStatus,
+      shiftHours: shiftHours,
+    );
+  }
 }

@@ -16,6 +16,7 @@ class RiderProfile {
     this.operatorCode,
     this.operatorStatus,
     this.serviceProvider,
+    this.serviceId,
     this.fleetOperatorId,
     this.experienceYears,
     this.motorcycleMake,
@@ -42,6 +43,7 @@ class RiderProfile {
   final String? operatorCode;
   final String? operatorStatus;
   final String? serviceProvider;
+  final String? serviceId;
   final String? fleetOperatorId;
   final int? experienceYears;
   final String? motorcycleMake;

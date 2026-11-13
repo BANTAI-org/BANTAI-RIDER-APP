@@ -214,9 +214,13 @@ class _LicenseStep extends StatelessWidget {
                 keyboardType: TextInputType.number,
               ),
               SignupField(
-                controller: controller.operatorIdController,
-                label: 'Operator ID',
+                controller: controller.serviceIdController,
+                label: 'Service ID',
                 validator: controller.validateServiceId,
+              ),
+              SignupField(
+                controller: controller.fleetOperatorIdController,
+                label: 'Fleet operator ID (optional)',
               ),
             ],
           ),
@@ -265,10 +269,20 @@ class _VehicleStep extends StatelessWidget {
           title: 'Medical',
           child: Column(
             children: [
-              SignupField(
+              SignupDropdown(
                 controller: controller.bloodTypeController,
-                label: 'Blood type',
                 validator: controller.validateBloodType,
+                entries: const [
+                  DropdownMenuEntry(value: 'A+', label: 'A+'),
+                  DropdownMenuEntry(value: 'A-', label: 'A-'),
+                  DropdownMenuEntry(value: 'B+', label: 'B+'),
+                  DropdownMenuEntry(value: 'B-', label: 'B-'),
+                  DropdownMenuEntry(value: 'AB+', label: 'AB+'),
+                  DropdownMenuEntry(value: 'AB-', label: 'AB-'),
+                  DropdownMenuEntry(value: 'O+', label: 'O+'),
+                  DropdownMenuEntry(value: 'O-', label: 'O-'),
+                  DropdownMenuEntry(value: 'unknown', label: 'Unknown'),
+                ],
               ),
               SignupField(
                 controller: controller.medicalConditionsController,
@@ -288,10 +302,19 @@ class _VehicleStep extends StatelessWidget {
                 label: 'Contact name',
                 validator: controller.validateRequired,
               ),
-              SignupField(
+              SignupDropdown(
                 controller: controller.emergencyRelationController,
-                label: 'Relation',
                 validator: controller.validateRequired,
+                entries: const [
+                  DropdownMenuEntry(value: 'spouse', label: 'Spouse'),
+                  DropdownMenuEntry(value: 'parent', label: 'Parent'),
+                  DropdownMenuEntry(value: 'child', label: 'Child'),
+                  DropdownMenuEntry(value: 'sibling', label: 'Sibling'),
+                  DropdownMenuEntry(value: 'relative', label: 'Relative'),
+                  DropdownMenuEntry(value: 'friend', label: 'Friend'),
+                  DropdownMenuEntry(value: 'guardian', label: 'Guardian'),
+                  DropdownMenuEntry(value: 'other', label: 'Other'),
+                ],
               ),
               SignupField(
                 controller: controller.emergencyNumberController,

@@ -17,6 +17,7 @@ class RiderProfileModel extends RiderProfile {
     super.operatorCode,
     super.operatorStatus,
     super.serviceProvider,
+    super.serviceId,
     super.fleetOperatorId,
     super.experienceYears,
     super.motorcycleMake,
@@ -31,29 +32,36 @@ class RiderProfileModel extends RiderProfile {
 
   factory RiderProfileModel.fromJson(Map<String, dynamic> json) {
     return RiderProfileModel(
-      id: json['id'] as String?,
-      firstName: json['f_name'] as String?,
-      middleName: json['m_name'] as String?,
-      lastName: json['l_name'] as String?,
-      birthday: json['date_of_birth'] as String?,
-      emailAddress: json['email'] as String?,
-      phoneNumber: json['m_number'] as String?,
-      address: json['address'] as String?,
-      licenseNumber: json['license_number'] as String?,
-      licenseExpiry: json['license_expires_at'] as String?,
-      serviceProvider: json['service_provider'] as String?,
-      fleetOperatorId: json['fleet_operator_id'] as String?,
+      id: _stringValue(json['id']),
+      firstName: _stringValue(json['f_name']),
+      middleName: _stringValue(json['m_name']),
+      lastName: _stringValue(json['l_name']),
+      birthday: _stringValue(json['date_of_birth']),
+      emailAddress: _stringValue(json['email']),
+      phoneNumber: _stringValue(json['m_number']),
+      address: _stringValue(json['address']),
+      licenseNumber: _stringValue(json['license_number']),
+      licenseExpiry: _stringValue(json['license_expires_at']),
+      serviceProvider: _stringValue(json['service_provider']),
+      serviceId: _stringValue(json['service_id']),
+      fleetOperatorId: _stringValue(json['fleet_operator_id']),
       experienceYears: (json['years_riding'] as num?)?.toInt(),
-      motorcycleModel: json['vehicle_model'] as String?,
-      motorcyclePlateNumber: json['plate_number'] as String?,
-      motorcycleColor: json['vehicle_color'] as String?,
-      bloodType: json['blood_type'] as String?,
-      medicalConditions: json['medical_conditions'] as String?,
+      motorcycleModel: _stringValue(json['vehicle_model']),
+      motorcyclePlateNumber: _stringValue(json['plate_number']),
+      motorcycleColor: _stringValue(json['vehicle_color']),
+      bloodType: _stringValue(json['blood_type']),
+      medicalConditions: _stringValue(json['medical_conditions']),
       emergencyContacts: ((json['emergency_contacts'] as List<dynamic>?) ?? [])
           .whereType<Map<String, dynamic>>()
           .map(EmergencyContactModel.fromJson)
           .toList(),
     );
+  }
+
+  static String? _stringValue(dynamic value) {
+    if (value == null) return null;
+    final normalized = value.toString().trim();
+    return normalized.isEmpty ? null : normalized;
   }
 
   String? _normalizeDate(String? value) {
@@ -271,6 +279,7 @@ class RiderProfileModel extends RiderProfile {
       operatorCode: entity.operatorCode,
       operatorStatus: entity.operatorStatus,
       serviceProvider: entity.serviceProvider,
+      serviceId: entity.serviceId,
       fleetOperatorId: entity.fleetOperatorId,
       experienceYears: entity.experienceYears,
       motorcycleMake: entity.motorcycleMake,

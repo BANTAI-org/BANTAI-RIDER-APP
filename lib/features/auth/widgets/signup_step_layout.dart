@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import 'forgot_password_widgets.dart';
 
 class SignupStepLayout extends StatelessWidget {
@@ -75,6 +76,52 @@ class SignupField extends StatelessWidget {
         validator: validator,
         keyboardType: keyboardType,
         obscureText: obscureText,
+      ),
+    );
+  }
+}
+
+class SignupDropdown extends StatelessWidget {
+  const SignupDropdown({
+    super.key,
+    required this.controller,
+    required this.validator,
+    required this.entries,
+  });
+
+  final TextEditingController controller;
+  final String? Function(String?)? validator;
+  final List<DropdownMenuEntry<String>> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownMenuFormField<String>(
+        controller: controller,
+        validator: validator,
+        width: double.infinity,
+        expandedInsets: EdgeInsets.zero,
+        alignmentOffset: const Offset(0, 8),
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: AppTheme.fieldFill,
+          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderSide: BorderSide(color: AppTheme.fieldBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderSide: BorderSide(color: AppTheme.fieldBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderSide: BorderSide(color: AppTheme.brandRed),
+          ),
+        ),
+        menuStyle: const MenuStyle(alignment: AlignmentDirectional.bottomStart),
+        dropdownMenuEntries: entries,
       ),
     );
   }
