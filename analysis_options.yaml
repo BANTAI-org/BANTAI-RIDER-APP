@@ -10,6 +10,10 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  errors:
+    # Flutter 3.47+ currently reports the framework's stable Material library
+    # as deprecated before a compatible material_ui migration is available.
+    deprecated_member_use: ignore
   exclude:
     - build/**
     - android/**
