@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+
+import 'dart:async';
+
 import 'package:camera/camera.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 class ScanCameraWidget extends StatelessWidget {
   const ScanCameraWidget({
@@ -8,6 +12,9 @@ class ScanCameraWidget extends StatelessWidget {
     required this.isCameraLoading,
     required this.cameraError,
     required this.onRetryCamera,
+    required this.streamBaseUrl,
+    required this.streamCandidates,
+    required this.onRetryStream,
     required this.isDownloading,
     required this.onDownloadClip,
   });
@@ -16,6 +23,9 @@ class ScanCameraWidget extends StatelessWidget {
   final bool isCameraLoading;
   final String? cameraError;
   final VoidCallback onRetryCamera;
+  final String? streamBaseUrl;
+  final List<String> streamCandidates;
+  final Future<void> Function() onRetryStream;
   final bool isDownloading;
   final VoidCallback onDownloadClip;
 
@@ -38,6 +48,9 @@ class ScanCameraWidget extends StatelessWidget {
           isLoading: isCameraLoading,
           error: cameraError,
           onRetry: onRetryCamera,
+          streamBaseUrl: streamBaseUrl,
+          streamCandidates: streamCandidates,
+          onRetryStream: onRetryStream,
         ),
         const SizedBox(height: 7),
         const Padding(
@@ -57,22 +70,121 @@ class ScanCameraWidget extends StatelessWidget {
   }
 }
 
-class _CameraPreview extends StatelessWidget {
+class _CameraPreview extends StatefulWidget {
   const _CameraPreview({
     required this.controller,
     required this.isLoading,
     required this.error,
     required this.onRetry,
+    required this.streamBaseUrl,
+    required this.streamCandidates,
+    required this.onRetryStream,
   });
 
   final CameraController? controller;
   final bool isLoading;
   final String? error;
   final VoidCallback onRetry;
+  final String? streamBaseUrl;
+  final List<String> streamCandidates;
+  final Future<void> Function() onRetryStream;
+
+  @override
+  State<_CameraPreview> createState() => _CameraPreviewState();
+}
+
+class _CameraPreviewState extends State<_CameraPreview> {
+  WebViewController? _webViewController;
+  int _candidateIndex = 0;
+  bool _loadingStream = true;
+
+  List<String> get _candidateUrls {
+    final candidates = <String>[
+      if (widget.streamBaseUrl != null) widget.streamBaseUrl!,
+      ...widget.streamCandidates,
+    ];
+    return candidates.where((value) => value.isNotEmpty).toSet().toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStreamCandidate();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CameraPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.streamBaseUrl != widget.streamBaseUrl ||
+        oldWidget.streamCandidates.join('|') !=
+            widget.streamCandidates.join('|')) {
+      _candidateIndex = 0;
+      _loadStreamCandidate();
+    }
+  }
+
+  void _loadStreamCandidate() {
+    final candidates = _candidateUrls;
+    if (candidates.isEmpty) {
+      setState(() => _loadingStream = false);
+      return;
+    }
+
+    _candidateIndex = _candidateIndex.clamp(0, candidates.length - 1);
+    final baseUrl = candidates[_candidateIndex];
+    final streamUrl = '$baseUrl/stream/mjpeg/0';
+    final controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF101010))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (_) {
+            if (mounted) setState(() => _loadingStream = true);
+          },
+          onPageFinished: (_) {
+            if (mounted) setState(() => _loadingStream = false);
+          },
+          onWebResourceError: (_) => _tryNextCandidate(),
+        ),
+      )
+      ..loadHtmlString(_streamHtml(streamUrl));
+
+    setState(() {
+      _webViewController = controller;
+      _loadingStream = true;
+    });
+  }
+
+  void _tryNextCandidate() {
+    final candidates = _candidateUrls;
+    if (_candidateIndex + 1 < candidates.length) {
+      _candidateIndex++;
+      _loadStreamCandidate();
+      return;
+    }
+    unawaited(widget.onRetryStream());
+  }
+
+  String _streamHtml(String streamUrl) {
+    return '''
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      html, body { width:100%; height:100%; margin:0; background:#101010; overflow:hidden; }
+      img { width:100%; height:100%; object-fit:contain; display:block; }
+    </style>
+  </head>
+  <body>
+    <img src="${streamUrl.replaceAll('"', '%22')}" alt="Pi camera stream">
+  </body>
+</html>
+''';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final activeController = controller;
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: ClipRRect(
@@ -81,22 +193,17 @@ class _CameraPreview extends StatelessWidget {
           color: const Color(0xFF101010),
           child: Stack(
             children: [
-              if (activeController?.value.isInitialized == true)
+              if (_webViewController != null)
                 Positioned.fill(
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: activeController!.value.previewSize!.height,
-                      height: activeController.value.previewSize!.width,
-                      child: CameraPreview(activeController),
-                    ),
-                  ),
+                  child: WebViewWidget(controller: _webViewController!),
                 )
               else
                 _CameraPlaceholder(
-                  isLoading: isLoading,
-                  error: error,
-                  onRetry: onRetry,
+                  isLoading: _loadingStream,
+                  error: _candidateUrls.isEmpty
+                      ? 'Waiting for the Pi stream address.'
+                      : 'Unable to reach the Pi camera stream.',
+                  onRetry: () => unawaited(widget.onRetryStream()),
                 ),
               const Positioned(
                 left: 14,

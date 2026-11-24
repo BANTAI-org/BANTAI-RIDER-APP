@@ -27,7 +27,7 @@ class _ScanPageState extends State<ScanPage> with WidgetsBindingObserver {
     _controller = widget.controller ?? ScanController();
     _ownsController = widget.controller == null;
     _controller.addListener(_refresh);
-    unawaited(_controller.initializeCamera());
+    unawaited(_controller.refreshPiStream());
   }
 
   @override
@@ -45,10 +45,7 @@ class _ScanPageState extends State<ScanPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(_controller.initializeCamera());
-    } else if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {
-      unawaited(_controller.pauseCamera());
+      unawaited(_controller.refreshPiStream());
     }
   }
 
@@ -80,6 +77,9 @@ class _ScanPageState extends State<ScanPage> with WidgetsBindingObserver {
                       isCameraLoading: _controller.isCameraLoading,
                       cameraError: _controller.cameraError,
                       onRetryCamera: _controller.initializeCamera,
+                      streamBaseUrl: _controller.piStreamUrl,
+                      streamCandidates: _controller.piStreamCandidates,
+                      onRetryStream: _controller.refreshPiStream,
                       isDownloading: _controller.isDownloading,
                       onDownloadClip: _controller.downloadBufferedClip,
                     ),

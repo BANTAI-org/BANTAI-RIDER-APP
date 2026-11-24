@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:http/http.dart' as http;
+
 import 'package:camera/camera.dart' as camera;
 import 'package:flutter/foundation.dart';
 
 import '../../../data/services/provisioning_service.dart';
+import '../../../core/constants/network_settings.dart';
 
 enum ScanMode { camera, pairDevice }
 
@@ -39,6 +42,8 @@ class ScanController extends ChangeNotifier {
   PiIdentity? _scannedPiIdentity;
   String? _setupToken;
   HotspotCredentials? _hotspotCredentials;
+  String? _piStreamUrl;
+  List<String> _piStreamCandidates = const [];
 
   ScanMode get mode => _mode;
   bool get isDownloading => _isDownloading;
@@ -54,11 +59,65 @@ class ScanController extends ChangeNotifier {
   PiIdentity? get scannedPiIdentity => _scannedPiIdentity;
   String? get setupToken => _setupToken;
   HotspotCredentials? get hotspotCredentials => _hotspotCredentials;
+  String? get piStreamUrl => _piStreamUrl;
+  List<String> get piStreamCandidates => _piStreamCandidates;
 
   String get deviceName => _scannedPiIdentity?.deviceId ?? 'Pi 5 Connection';
   String get deviceIdentifier =>
       _scannedPiIdentity?.deviceId ?? 'BANTAI-PI-4471';
   String get firmwareVersion => 'Firmware 2.4.1';
+
+  Future<void> refreshPiStream() => _preparePiStreamCandidates();
+
+  Future<void> _preparePiStreamCandidates() async {
+    final identity = _scannedPiIdentity;
+    final candidates = <String>[
+      if (_provisioningService.streamUrl?.trim().isNotEmpty == true)
+        _provisioningService.streamUrl!.trim(),
+      if (identity?.streamUrl?.trim().isNotEmpty == true)
+        identity!.streamUrl!.trim(),
+      if (identity?.streamHost?.trim().isNotEmpty == true)
+        'http://${identity!.streamHost!.trim()}:${identity.streamPort ?? 8000}',
+      NetworkSettings.raspberryBaseUrl,
+      'http://192.168.4.1:8000',
+      'http://192.168.43.1:8000',
+      'http://192.168.137.1:8000',
+    ];
+
+    final uniqueCandidates = <String>[];
+    for (final candidate in candidates) {
+      final uri = Uri.tryParse(candidate);
+      if (uri == null || !uri.hasScheme || uri.host.isEmpty) continue;
+      final normalized = uri
+          .replace(path: '', query: '', fragment: '')
+          .toString();
+      final withoutTrailingSlash = normalized.endsWith('/')
+          ? normalized.substring(0, normalized.length - 1)
+          : normalized;
+      if (!uniqueCandidates.contains(withoutTrailingSlash)) {
+        uniqueCandidates.add(withoutTrailingSlash);
+      }
+    }
+
+    _piStreamCandidates = uniqueCandidates;
+    _piStreamUrl = null;
+    notifyListeners();
+
+    for (final baseUrl in uniqueCandidates) {
+      try {
+        final response = await http
+            .get(Uri.parse('$baseUrl/api/status'))
+            .timeout(const Duration(seconds: 2));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          _piStreamUrl = baseUrl;
+          notifyListeners();
+          return;
+        }
+      } catch (_) {
+        // Try the next provisioning or mDNS fallback.
+      }
+    }
+  }
 
   void selectMode(ScanMode mode) {
     if (_mode == mode) {
@@ -241,6 +300,7 @@ class ScanController extends ChangeNotifier {
       debugPrint('[BANTAI] startProvisioning: credentials=$success');
 
       if (success) {
+        await _preparePiStreamCandidates();
         _provisioningStep = ProvisioningStep.completed;
         _isPaired = true;
         notifyListeners();
@@ -272,6 +332,8 @@ class ScanController extends ChangeNotifier {
     _scannedPiIdentity = null;
     _setupToken = null;
     _hotspotCredentials = null;
+    _piStreamUrl = null;
+    _piStreamCandidates = const [];
     _pairingError = null;
     notifyListeners();
   }
@@ -289,6 +351,8 @@ class ScanController extends ChangeNotifier {
 
   void unpairDevice() {
     _isPaired = false;
+    _piStreamUrl = null;
+    _piStreamCandidates = const [];
     notifyListeners();
     // TODO(backend): Stop recording and clear the paired device keys.
   }

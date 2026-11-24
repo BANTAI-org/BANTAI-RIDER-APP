@@ -32,6 +32,17 @@
 	<string>Use the camera to view and scan your paired BANTAI device.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Use your location to center the nearby rider map.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Connect to the paired BANTAI Raspberry Pi camera stream on the local hotspot.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>GMSApiKey</key>
 	<string>$(GOOGLE_MAPS_API_KEY)</string>
 	<key>UIApplicationSceneManifest</key>

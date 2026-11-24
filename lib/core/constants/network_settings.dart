@@ -9,6 +9,23 @@ class NetworkSettings {
     seconds: int.tryParse(dotenv.env['API_TIMEOUT_SECONDS'] ?? '') ?? 15,
   );
 
+  static String get raspberryBaseUrl {
+    final configured = dotenv.env['RASPBERRY_BASE_URL']?.trim();
+    if (configured == null || configured.isEmpty) {
+      return 'http://bantai.local:8000';
+    }
+
+    final uri = Uri.tryParse(configured);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return 'http://bantai.local:8000';
+    }
+
+    return uri
+        .replace(path: '', query: '', fragment: '')
+        .toString()
+        .replaceFirst(RegExp(r'/$'), '');
+  }
+
   static String get commsSocketBaseUrl {
     final configured = dotenv.env['COMMS_WEBSOCKET_URL']?.trim();
     final source = configured != null && configured.isNotEmpty
@@ -42,7 +59,7 @@ class NetworkSettings {
       '/drivers/forgot-password/verify';
   static const String forgotPasswordResetPath =
       '/drivers/forgot-password/reset';
-  
+
   // Profile endpoints
   static const String profilePath = '/drivers';
   static const String profileUpdatePath = '/drivers/profile';
@@ -60,6 +77,4 @@ class NetworkSettings {
 
   // Duty endpoints
   static const String changeDutyPath = '/drivers/duty';
-
 }
-

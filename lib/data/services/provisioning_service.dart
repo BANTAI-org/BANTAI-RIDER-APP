@@ -14,6 +14,9 @@ class PiIdentity {
     required this.publicKey,
     required this.keyFingerprint,
     required this.setupToken,
+    this.streamUrl,
+    this.streamHost,
+    this.streamPort,
   });
 
   factory PiIdentity.fromJson(Map<String, dynamic> json) {
@@ -23,7 +26,12 @@ class PiIdentity {
       bleServiceUuid: json['ble_service_uuid'] as String,
       publicKey: json['public_key'] as String,
       keyFingerprint: json['key_fingerprint'] as String,
-      setupToken: json['setup_token'] as String,
+      setupToken: (json['setup_token'] as String?) ?? '',
+      streamUrl: json['stream_url'] as String?,
+      streamHost: json['stream_host'] as String?,
+      streamPort: json['stream_port'] is int
+          ? json['stream_port'] as int
+          : int.tryParse(json['stream_port']?.toString() ?? ''),
     );
   }
 
@@ -33,6 +41,9 @@ class PiIdentity {
   final String publicKey;
   final String keyFingerprint;
   final String setupToken;
+  final String? streamUrl;
+  final String? streamHost;
+  final int? streamPort;
 
   Map<String, dynamic> toJson() => {
     'version': version,
@@ -41,6 +52,9 @@ class PiIdentity {
     'public_key': publicKey,
     'key_fingerprint': keyFingerprint,
     'setup_token': setupToken,
+    if (streamUrl != null) 'stream_url': streamUrl,
+    if (streamHost != null) 'stream_host': streamHost,
+    if (streamPort != null) 'stream_port': streamPort,
   };
 }
 
@@ -105,8 +119,10 @@ class ProvisioningService {
   SecretKey? _sessionKey;
   Uint8List? _transcriptHash;
   PiIdentity? _piIdentity;
+  String? _streamUrl;
 
   PiIdentity? get piIdentity => _piIdentity;
+  String? get streamUrl => _streamUrl;
   BleProvisioningClient get bleClient => _bleClient;
 
   Future<PiIdentity?> parseQrCode(String qrData) async {
@@ -135,9 +151,7 @@ class ProvisioningService {
   Future<void> connectToPi() async {
     final identity = _piIdentity;
     if (identity == null) throw StateError('No Pi identity available');
-    await _bleClient.connect(
-      expectedName: identity.deviceId,
-    );
+    await _bleClient.connect(expectedName: identity.deviceId);
   }
 
   Future<bool> performHandshake(String setupToken) async {
@@ -167,6 +181,7 @@ class ProvisioningService {
     }
 
     try {
+      _streamUrl = null;
       final envelope = await _encrypt(
         {'type': 'hotspot_credentials', ...credentials.toJson()},
         aad: [...hash, ...utf8.encode('client-to-server')],
@@ -181,7 +196,22 @@ class ProvisioningService {
 
       final payload = await _decryptServerMessage(reply);
       if (payload['type'] == 'hotspot_response') {
-        return payload['success'] as bool? ?? false;
+        final success = payload['success'] as bool? ?? false;
+        if (success) {
+          final returnedUrl = payload['stream_url'] as String?;
+          final returnedHost = payload['stream_host'] as String?;
+          final returnedPort = payload['stream_port'] is int
+              ? payload['stream_port'] as int
+              : int.tryParse(payload['stream_port']?.toString() ?? '');
+
+          if (returnedUrl != null && returnedUrl.trim().isNotEmpty) {
+            _streamUrl = returnedUrl.trim();
+          } else if (returnedHost != null && returnedHost.trim().isNotEmpty) {
+            _streamUrl =
+                'http://${returnedHost.trim()}:${returnedPort ?? 8000}';
+          }
+        }
+        return success;
       }
       debugPrint('[BANTAI] Unexpected payload: $payload');
       return false;
